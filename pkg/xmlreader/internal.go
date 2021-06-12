@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 	"strconv"
+
+	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlout"
 )
 
 type product struct {
@@ -26,14 +28,6 @@ type metadata struct {
 	Fields  []field  `xml:"FIELD"`
 }
 
-type field struct {
-	XMLName   xml.Name `xml:"FIELD"`
-	EmptyOK   string   `xml:"EMPTYOK,attr"`
-	MaxRepeat string   `xml:"MAXREPEAT,attr"`
-	Name      string   `xml:"NAME,attr"`
-	Type      string   `xml:"TYPE,attr"`
-}
-
 type resultSet struct {
 	XMLName xml.Name `xml:"RESULTSET"`
 	Found   string   `xml:"FOUND,attr"`
@@ -42,7 +36,7 @@ type resultSet struct {
 
 type col struct {
 	XMLName xml.Name `xml:"COL"`
-	Data    string   `xml:"DATA"`
+	Data    []string `xml:"DATA"`
 }
 
 type row struct {
@@ -61,11 +55,11 @@ type fmpxmlresult struct {
 	ResultSet resultSet `xml:"RESULTSET"`
 }
 
-func ReadXML(r io.Reader) (Document, error) {
+func ReadXML(r io.Reader) (fmpxmlout.Document, error) {
 	internal, err := readInternalFormat(r)
 
 	if err != nil {
-		return Document{}, err
+		return fmpxmlout.Document{}, err
 	}
 
 	return internal.ToNormalized()
@@ -84,8 +78,8 @@ func readInternalFormat(r io.Reader) (fmpxmlresult, error) {
 	return out, nil
 }
 
-func (o fmpxmlresult) ToNormalized() (Document, error) {
-	out := Document{}
+func (o fmpxmlresult) ToNormalized() (fmpxmlout.Document, error) {
+	out := fmpxmlout.Document{}
 
 	// Code below is structured with local 'v' because Go's scopes annoy me sometimes
 
@@ -107,9 +101,36 @@ func (o fmpxmlresult) ToNormalized() (Document, error) {
 	out.Metadata.Product.Name = o.Product.Name
 	out.Metadata.Product.Version = o.Product.Version
 
-	records := make([]Record, len(o.ResultSet.Rows))
+	out.Metadata.Fields = make([]*fmpxmlout.Field, len(o.Metadata.Fields))
 
-	out.Records = records
+	for i, f := range o.Metadata.Fields {
+		field := f.Normalize()
+
+		out.Metadata.Fields[i] = &field
+	}
+
+	out.Records = make([]fmpxmlout.Record, len(o.ResultSet.Rows))
+
+	for rowNum, row := range o.ResultSet.Rows {
+		record := fmpxmlout.Record{
+			RecordID: row.RecordID,
+			ModID:    row.ModID,
+			Data:     map[*fmpxmlout.Field][]string{},
+		}
+
+		for colNum, col := range row.Cols {
+			field := out.Metadata.Fields[colNum]
+
+			record.Data[field] = make([]string, len(col.Data))
+
+			for dataIndex, data := range col.Data {
+				record.Data[field][dataIndex] = data
+			}
+		}
+
+		out.Records[rowNum] = record
+
+	}
 
 	return out, nil
 }

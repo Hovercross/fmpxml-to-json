@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
+	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlout"
 	"github.com/hovercross/fmpxml-to-json/pkg/xmlreader"
 )
 
@@ -73,7 +74,7 @@ func Test_Parse(t *testing.T) {
 		return
 	}
 
-	expectedDatabase := xmlreader.Database{
+	expectedDatabase := fmpxmlout.Database{
 		DateFormat: "M/d/yyyy",
 		Layout:     "Overview",
 		Name:       "ksTEACHERS.fmp12",
@@ -81,23 +82,23 @@ func Test_Parse(t *testing.T) {
 		TimeFormat: "h:mm:ss a",
 	}
 
-	expectedProduct := xmlreader.Product{
+	expectedProduct := fmpxmlout.Product{
 		Build:   "06-07-2018",
 		Name:    "FileMaker",
 		Version: "Server 17.0.2",
 	}
 
-	expectedMetadata := xmlreader.Metadata{
+	expectedMetadata := fmpxmlout.Metadata{
 		Database:  expectedDatabase,
 		Product:   expectedProduct,
 		ErrorCode: 15,
 	}
 
-	expectedRecord := xmlreader.Record{}
+	expectedRecord := fmpxmlout.Record{}
 
-	expectedRecords := []xmlreader.Record{expectedRecord}
+	expectedRecords := []fmpxmlout.Record{expectedRecord}
 
-	expected := xmlreader.Document{
+	expected := fmpxmlout.Document{
 		Metadata: expectedMetadata,
 		Records:  expectedRecords,
 	}
