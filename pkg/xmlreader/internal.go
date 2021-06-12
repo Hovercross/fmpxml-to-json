@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"io"
 	"io/ioutil"
+	"strconv"
 )
 
 type product struct {
@@ -67,7 +68,7 @@ func ReadXML(r io.Reader) (Document, error) {
 		return Document{}, err
 	}
 
-	return internal.ToNormalized(), nil
+	return internal.ToNormalized()
 }
 
 func readInternalFormat(r io.Reader) (fmpxmlresult, error) {
@@ -83,15 +84,23 @@ func readInternalFormat(r io.Reader) (fmpxmlresult, error) {
 	return out, nil
 }
 
-func (o fmpxmlresult) ToNormalized() Document {
+func (o fmpxmlresult) ToNormalized() (Document, error) {
 	out := Document{}
+
+	// Code below is structured with local 'v' because Go's scopes annoy me sometimes
+
+	// Convert database record count into int
+	if v, err := strconv.Atoi(o.Database.Records); err == nil {
+		out.Metadata.Database.Records = v
+	} else {
+		return out, err
+	}
 
 	out.Metadata.ErrorCode = o.ErrorCode
 
 	out.Metadata.Database.DateFormat = o.Database.DateFormat
 	out.Metadata.Database.Layout = o.Database.Layout
 	out.Metadata.Database.Name = o.Database.Name
-	out.Metadata.Database.Records = o.Database.Records
 	out.Metadata.Database.TimeFormat = o.Database.TimeFormat
 
 	out.Metadata.Product.Build = o.Product.Build
@@ -99,7 +108,8 @@ func (o fmpxmlresult) ToNormalized() Document {
 	out.Metadata.Product.Version = o.Product.Version
 
 	records := make([]Record, len(o.ResultSet.Rows))
+
 	out.Records = records
 
-	return out
+	return out, nil
 }

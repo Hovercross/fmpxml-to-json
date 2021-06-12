@@ -77,7 +77,7 @@ func Test_Parse(t *testing.T) {
 		DateFormat: "M/d/yyyy",
 		Layout:     "Overview",
 		Name:       "ksTEACHERS.fmp12",
-		Records:    "397",
+		Records:    397,
 		TimeFormat: "h:mm:ss a",
 	}
 

@@ -12,7 +12,7 @@ type Database struct {
 	DateFormat string
 	Layout     string
 	Name       string
-	Records    string
+	Records    int
 	TimeFormat string
 }
 
@@ -23,6 +23,9 @@ type Metadata struct {
 }
 
 type Record struct {
+	RecordID string
+	ModID    string
+	Values   map[string]interface{}
 }
 
 // A document representing an FMPXMLResult type input
