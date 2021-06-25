@@ -9,8 +9,8 @@ import (
 	"github.com/hovercross/fmpxml-to-json/pkg/xmlreader"
 )
 
-func getSampleData() []byte {
-	return []byte(`<?xml version="1.0" encoding="UTF-8" ?>
+func Test_Parse(t *testing.T) {
+	sampleData := []byte(`<?xml version="1.0" encoding="UTF-8" ?>
 	<FMPXMLRESULT xmlns="http://www.filemaker.com/fmpxmlresult">
 		<ERRORCODE>15</ERRORCODE>
 		<PRODUCT BUILD="06-07-2018" NAME="FileMaker" VERSION="Server 17.0.2"/>
@@ -35,15 +35,10 @@ func getSampleData() []byte {
 			
 		</RESULTSET>
 	</FMPXMLRESULT>`)
-}
 
-func getSampleByteBuffer() *bytes.Buffer {
-	return bytes.NewBuffer(getSampleData())
-}
+	sampleBuffer := bytes.NewBuffer(sampleData)
 
-func Test_Parse(t *testing.T) {
-	sampleData := getSampleByteBuffer()
-	parsed, err := xmlreader.ReadXML(sampleData)
+	parsed, err := xmlreader.ReadXML(sampleBuffer)
 
 	if err != nil {
 		t.Error(err)
