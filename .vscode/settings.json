@@ -4,10 +4,11 @@
         "fmpxml",
         "fmpxmlout",
         "fmpxmlresult",
-        "idteacher",
         "modid",
         "recordid",
-        "thingydo",
         "timeconv"
+    ],
+    "cSpell.ignoreWords": [
+        "mdyyyy"
     ]
 }
