@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlout"
+	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 	"github.com/hovercross/fmpxml-to-json/pkg/xmlreader"
 )
 
@@ -14,46 +14,22 @@ func getSampleData() []byte {
 	<FMPXMLRESULT xmlns="http://www.filemaker.com/fmpxmlresult">
 		<ERRORCODE>15</ERRORCODE>
 		<PRODUCT BUILD="06-07-2018" NAME="FileMaker" VERSION="Server 17.0.2"/>
-		<DATABASE DATEFORMAT="M/d/yyyy" LAYOUT="Overview" NAME="ksTEACHERS.fmp12" RECORDS="397" TIMEFORMAT="h:mm:ss a"/>
+		<DATABASE DATEFORMAT="M/d/yyyy" LAYOUT="Overview" NAME="test.fmp12" RECORDS="1" TIMEFORMAT="h:mm:ss a"/>
 		<METADATA>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="NameFirst" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="NameLast" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="NamePrefix" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="EmailSchool" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Active Employee" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="NameUnique" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="IDTEACHER" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Enrichment Meeting Room" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Enrichment_Description" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="First" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
 		</METADATA>
-		<RESULTSET FOUND="397">
+		<RESULTSET FOUND="1">
 			<ROW MODID="196" RECORDID="683">
 				<COL>
-					<DATA>John</DATA>
+					<DATA>Adam</DATA>
 				</COL>
 				<COL>
-					<DATA>Smith</DATA>
+					<DATA>Peacock</DATA>
 				</COL>
 				<COL>
-					<DATA>Mrs.</DATA>
-				</COL>
-				<COL>
-					<DATA>jsmith@example.org</DATA>
-				</COL>
-				<COL>
-					<DATA>Maybe</DATA>
-				</COL>
-				<COL>
-					<DATA>SmithJ</DATA>
-				</COL>
-				<COL>
-					<DATA>T001</DATA>
-				</COL>
-				<COL>
-					<DATA>123</DATA>
-				</COL>
-				<COL>
-					<DATA>Thingydo</DATA>
+					<DATA>apeacock@example.org</DATA>
 				</COL>
 			</ROW>
 			
@@ -74,33 +50,45 @@ func Test_Parse(t *testing.T) {
 		return
 	}
 
-	expectedDatabase := fmpxmlout.Database{
+	expectedMetadata := fmpxmlresult.Metadata{
+		Fields: []fmpxmlresult.Field{
+			{EmptyOK: true, MaxRepeat: 1, Name: "First", Type: "TEXT"},
+			{EmptyOK: true, MaxRepeat: 1, Name: "Last", Type: "TEXT"},
+			{EmptyOK: true, MaxRepeat: 1, Name: "Email", Type: "TEXT"},
+		},
+	}
+
+	expectedDatabase := fmpxmlresult.Database{
 		DateFormat: "M/d/yyyy",
 		Layout:     "Overview",
-		Name:       "ksTEACHERS.fmp12",
-		Records:    397,
+		Name:       "test.fmp12",
+		Records:    1,
 		TimeFormat: "h:mm:ss a",
 	}
 
-	expectedProduct := fmpxmlout.Product{
+	expectedProduct := fmpxmlresult.Product{
 		Build:   "06-07-2018",
 		Name:    "FileMaker",
 		Version: "Server 17.0.2",
 	}
 
-	expectedMetadata := fmpxmlout.Metadata{
-		Database:  expectedDatabase,
-		Product:   expectedProduct,
-		ErrorCode: 15,
+	expectedResultSet := fmpxmlresult.ResultSet{
+		Found: 1,
+		Rows: []fmpxmlresult.Row{
+			{ModID: "196", RecordID: "683", Cols: []fmpxmlresult.Col{
+				{Data: []string{"Adam"}},
+				{Data: []string{"Peacock"}},
+				{Data: []string{"apeacock@example.org"}},
+			}},
+		},
 	}
 
-	expectedRecord := fmpxmlout.Record{}
-
-	expectedRecords := []fmpxmlout.Record{expectedRecord}
-
-	expected := fmpxmlout.Document{
-		Metadata: expectedMetadata,
-		Records:  expectedRecords,
+	expected := fmpxmlresult.FMPXMLResult{
+		ErrorCode: 15,
+		Product:   expectedProduct,
+		Database:  expectedDatabase,
+		Metadata:  expectedMetadata,
+		ResultSet: expectedResultSet,
 	}
 
 	for _, diff := range deep.Equal(parsed, expected) {

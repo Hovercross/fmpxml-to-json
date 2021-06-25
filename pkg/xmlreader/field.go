@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlout"
+	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 )
 
 type field struct {
@@ -16,15 +16,29 @@ type field struct {
 	Type      string   `xml:"TYPE,attr"`
 }
 
-func (f field) Normalize() fmpxmlout.Field {
-	out := fmpxmlout.Field{
-		EmptyOK:   mustEmptyToBool(f.EmptyOK),
-		MaxRepeat: mustParseInt(f.MaxRepeat),
-		Name:      f.Name,
-		Type:      f.Type,
+func (f field) Normalize() (fmpxmlresult.Field, error) {
+	out := fmpxmlresult.Field{
+		Name: f.Name,
+		Type: f.Type,
 	}
 
-	return out
+	emptyOK, err := emptyToBool(f.EmptyOK)
+
+	if err != nil {
+		return out, err
+	}
+
+	out.EmptyOK = emptyOK
+
+	maxRepeat, err := strconv.Atoi(f.MaxRepeat)
+
+	if err != nil {
+		return out, err
+	}
+
+	out.MaxRepeat = maxRepeat
+
+	return out, nil
 }
 
 func emptyToBool(in string) (bool, error) {
@@ -37,26 +51,4 @@ func emptyToBool(in string) (bool, error) {
 	}
 
 	return false, fmt.Errorf("Could not interpret %s as a bool", in)
-}
-
-// This is bad design. Fix it.
-func mustEmptyToBool(in string) bool {
-	v, err := emptyToBool(in)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return v
-}
-
-// This is bad design. Fix it.
-func mustParseInt(in string) int {
-	v, err := strconv.Atoi(in)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return v
 }
