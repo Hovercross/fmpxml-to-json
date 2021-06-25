@@ -28,13 +28,7 @@ func (rs resultSet) Normalize() (fmpxmlresult.ResultSet, error) {
 	out.Found = found
 
 	for i, row := range rs.Rows {
-		normalized, err := row.Normalize()
-
-		if err != nil {
-			return out, fmt.Errorf("Could not parse row %d: %s", i, err)
-		}
-
-		out.Rows[i] = normalized
+		out.Rows[i] = row.Normalize()
 	}
 
 	return out, nil

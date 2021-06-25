@@ -13,7 +13,7 @@ type row struct {
 	Cols     []col    `xml:"COL"`
 }
 
-func (r row) Normalize() (fmpxmlresult.Row, error) {
+func (r row) Normalize() fmpxmlresult.Row {
 	out := fmpxmlresult.Row{
 		ModID:    r.ModID,
 		RecordID: r.RecordID,
@@ -24,5 +24,5 @@ func (r row) Normalize() (fmpxmlresult.Row, error) {
 		out.Cols[i] = col.Normalize()
 	}
 
-	return out, nil
+	return out
 }

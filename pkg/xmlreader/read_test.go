@@ -2,6 +2,7 @@ package xmlreader_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/go-test/deep"
@@ -18,7 +19,7 @@ func Test_Parse(t *testing.T) {
 		<METADATA>
 			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="First" TYPE="TEXT"/>
 			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
-			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
+			<FIELD EMPTYOK="NO" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
 		</METADATA>
 		<RESULTSET FOUND="1">
 			<ROW MODID="196" RECORDID="683">
@@ -49,7 +50,7 @@ func Test_Parse(t *testing.T) {
 		Fields: []fmpxmlresult.Field{
 			{EmptyOK: true, MaxRepeat: 1, Name: "First", Type: "TEXT"},
 			{EmptyOK: true, MaxRepeat: 1, Name: "Last", Type: "TEXT"},
-			{EmptyOK: true, MaxRepeat: 1, Name: "Email", Type: "TEXT"},
+			{EmptyOK: false, MaxRepeat: 1, Name: "Email", Type: "TEXT"},
 		},
 	}
 
@@ -89,4 +90,163 @@ func Test_Parse(t *testing.T) {
 	for _, diff := range deep.Equal(parsed, expected) {
 		t.Error(diff)
 	}
+}
+
+func Test_BadMetadata(t *testing.T) {
+	sampleData := []byte(`<?xml version="1.0" encoding="UTF-8" ?>
+	<FMPXMLRESULT xmlns="http://www.filemaker.com/fmpxmlresult">
+		<ERRORCODE>15</ERRORCODE>
+		<PRODUCT BUILD="06-07-2018" NAME="FileMaker" VERSION="Server 17.0.2"/>
+		<DATABASE DATEFORMAT="M/d/yyyy" LAYOUT="Overview" NAME="test.fmp12" RECORDS="1" TIMEFORMAT="h:mm:ss a"/>
+		<METADATA>
+			<FIELD EMPTYOK="MAYBE" MAXREPEAT="1" NAME="First" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
+		</METADATA>
+		<RESULTSET FOUND="1">
+			<ROW MODID="196" RECORDID="683">
+				<COL>
+					<DATA>Adam</DATA>
+				</COL>
+				<COL>
+					<DATA>Peacock</DATA>
+				</COL>
+				<COL>
+					<DATA>apeacock@example.org</DATA>
+				</COL>
+			</ROW>
+			
+		</RESULTSET>
+	</FMPXMLRESULT>`)
+
+	sampleBuffer := bytes.NewBuffer(sampleData)
+
+	_, err := xmlreader.ReadXML(sampleBuffer)
+
+	if err == nil {
+		t.Error("Did not get an error")
+	}
+}
+
+func Test_BadDatabase(t *testing.T) {
+	sampleData := []byte(`<?xml version="1.0" encoding="UTF-8" ?>
+	<FMPXMLRESULT xmlns="http://www.filemaker.com/fmpxmlresult">
+		<ERRORCODE>15</ERRORCODE>
+		<PRODUCT BUILD="06-07-2018" NAME="FileMaker" VERSION="Server 17.0.2"/>
+		<DATABASE DATEFORMAT="M/d/yyyy" LAYOUT="Overview" NAME="test.fmp12" RECORDS="PIE" TIMEFORMAT="h:mm:ss a"/>
+		<METADATA>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="First" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
+		</METADATA>
+		<RESULTSET FOUND="1">
+			<ROW MODID="196" RECORDID="683">
+				<COL>
+					<DATA>Adam</DATA>
+				</COL>
+				<COL>
+					<DATA>Peacock</DATA>
+				</COL>
+				<COL>
+					<DATA>apeacock@example.org</DATA>
+				</COL>
+			</ROW>
+			
+		</RESULTSET>
+	</FMPXMLRESULT>`)
+
+	sampleBuffer := bytes.NewBuffer(sampleData)
+
+	_, err := xmlreader.ReadXML(sampleBuffer)
+
+	if err == nil {
+		t.Error("Did not get an error")
+	}
+}
+
+func Test_BadResultSet(t *testing.T) {
+	sampleData := []byte(`<?xml version="1.0" encoding="UTF-8" ?>
+	<FMPXMLRESULT xmlns="http://www.filemaker.com/fmpxmlresult">
+		<ERRORCODE>15</ERRORCODE>
+		<PRODUCT BUILD="06-07-2018" NAME="FileMaker" VERSION="Server 17.0.2"/>
+		<DATABASE DATEFORMAT="M/d/yyyy" LAYOUT="Overview" NAME="test.fmp12" RECORDS="1" TIMEFORMAT="h:mm:ss a"/>
+		<METADATA>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="First" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
+		</METADATA>
+		<RESULTSET FOUND="PIE">
+			<ROW MODID="196" RECORDID="683">
+				<COL>
+					<DATA>Adam</DATA>
+				</COL>
+				<COL>
+					<DATA>Peacock</DATA>
+				</COL>
+				<COL>
+					<DATA>apeacock@example.org</DATA>
+				</COL>
+			</ROW>
+			
+		</RESULTSET>
+	</FMPXMLRESULT>`)
+
+	sampleBuffer := bytes.NewBuffer(sampleData)
+
+	_, err := xmlreader.ReadXML(sampleBuffer)
+
+	if err == nil {
+		t.Error("Did not get an error")
+	}
+}
+
+func Test_BadMaxRepeat(t *testing.T) {
+	sampleData := []byte(`<?xml version="1.0" encoding="UTF-8" ?>
+	<FMPXMLRESULT xmlns="http://www.filemaker.com/fmpxmlresult">
+		<ERRORCODE>15</ERRORCODE>
+		<PRODUCT BUILD="06-07-2018" NAME="FileMaker" VERSION="Server 17.0.2"/>
+		<DATABASE DATEFORMAT="M/d/yyyy" LAYOUT="Overview" NAME="test.fmp12" RECORDS="1" TIMEFORMAT="h:mm:ss a"/>
+		<METADATA>
+			<FIELD EMPTYOK="YES" MAXREPEAT="PIE" NAME="First" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
+		</METADATA>
+		<RESULTSET FOUND="1">
+			<ROW MODID="196" RECORDID="683">
+				<COL>
+					<DATA>Adam</DATA>
+				</COL>
+				<COL>
+					<DATA>Peacock</DATA>
+				</COL>
+				<COL>
+					<DATA>apeacock@example.org</DATA>
+				</COL>
+			</ROW>
+			
+		</RESULTSET>
+	</FMPXMLRESULT>`)
+
+	sampleBuffer := bytes.NewBuffer(sampleData)
+
+	_, err := xmlreader.ReadXML(sampleBuffer)
+
+	if err == nil {
+		t.Error("Did not get an error")
+	}
+}
+
+func Test_BadRead(t *testing.T) {
+
+	_, err := xmlreader.ReadXML(errorReader{})
+
+	if err == nil {
+		t.Error("Didn't get an error")
+	}
+}
+
+type errorReader struct{}
+
+func (er errorReader) Read(buf []byte) (int, error) {
+	return 0, fmt.Errorf("Error goes here")
 }
