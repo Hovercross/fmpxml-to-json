@@ -50,10 +50,10 @@ type Record map[string]json.RawMessage
 
 type FMPXMLResult struct {
 	ErrorCode int       `json:"errorCode"`
-	Product   Product   `json:"product"`
-	Metadata  Metadata  `json:"metadata"`
-	Database  Database  `json:"database"`
-	ResultSet ResultSet `json:"resultSet"`
+	Product   Product   `json:"product,omitempty"`
+	Metadata  Metadata  `json:"metadata,omitempty"`
+	Database  Database  `json:"database,omitempty"`
+	ResultSet ResultSet `json:"resultSet,omitempty"`
 
 	Records []Record `json:"records,omitempty"`
 }
