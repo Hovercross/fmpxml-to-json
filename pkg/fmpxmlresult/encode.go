@@ -12,7 +12,7 @@ import (
 type fieldEncoder func([]string) (json.RawMessage, error)
 
 // PopulateRecords will create all the easy to read record data
-func (fmp FMPXMLResult) PopulateRecords() error {
+func (fmp *FMPXMLResult) PopulateRecords() error {
 	dateFormat := timeconv.ParseDateFormat(fmp.Database.DateFormat)
 	timeFormat := timeconv.ParseTimeFormat(fmp.Database.TimeFormat)
 	timestampFormat := dateFormat + " " + timeFormat // No idea if this is right, don't have an example handy
@@ -28,10 +28,34 @@ func (fmp FMPXMLResult) PopulateRecords() error {
 	// Since the fields are just in order, get the normalizers per ordered field, so we can
 	// then loop over the columns in each row and apply the ordered normalizer
 	normalizersByPosition := make([]fieldEncoder, len(fmp.Metadata.Fields))
+	fieldNamesByPosition := make([]string, len(fmp.Metadata.Fields))
 
 	// Load each of the normalizers
 	for i, field := range fmp.Metadata.Fields {
 		normalizersByPosition[i] = fmp.getEncoder(field, datumNormalizers)
+		fieldNamesByPosition[i] = field.Name
+	}
+
+	// Empty out our record destination, and allocate it in a single go
+	fmp.Records = make([]Record, len(fmp.ResultSet.Rows))
+
+	for i, row := range fmp.ResultSet.Rows {
+		record := Record{}
+
+		for j, col := range row.Cols {
+			encoder := normalizersByPosition[j]
+			name := fieldNamesByPosition[j]
+
+			encoded, err := encoder(col.Data)
+
+			if err != nil {
+				return fmt.Errorf("Unable to encode row %d column %d: %v", i, j, err)
+			}
+
+			record[name] = encoded
+		}
+
+		fmp.Records[i] = record
 	}
 
 	return nil
