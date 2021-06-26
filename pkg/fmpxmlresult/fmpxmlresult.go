@@ -45,7 +45,7 @@ type Row struct {
 	Cols     []Col
 }
 
-// Record is the normalized output for easy JSON work
+// Record is the normalized output for easy JSON work. The value may be a scalar or an array, based on the field repeat
 type Record map[string]json.RawMessage
 
 type FMPXMLResult struct {
