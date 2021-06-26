@@ -52,7 +52,7 @@ func Test_Populate(t *testing.T) {
 		{
 			"First": json.RawMessage(`"Adam"`),
 			"Last":  json.RawMessage(`"Peacock"`),
-			"Email": json.RawMessage(`"apeacock@example.org","apeacock-test@example.org"`),
+			"Email": json.RawMessage(`["apeacock@example.org","apeacock-test@example.org"]`),
 		},
 	}
 
