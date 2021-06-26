@@ -31,13 +31,13 @@ func (fmp FMPXMLResult) PopulateRecords() error {
 
 	// Load each of the normalizers
 	for i, field := range fmp.Metadata.Fields {
-		normalizersByPosition[i] = fmp.getNormalizer(field, datumNormalizers)
+		normalizersByPosition[i] = fmp.getEncoder(field, datumNormalizers)
 	}
 
 	return nil
 }
 
-func (fmp FMPXMLResult) getNormalizer(f Field, normalizers map[string]dataEncoder) fieldEncoder {
+func (fmp FMPXMLResult) getEncoder(f Field, normalizers map[string]dataEncoder) fieldEncoder {
 	var dn dataEncoder = encodeString // Just a default
 
 	// Override the string encoder, if we have a more appropriate encoder
