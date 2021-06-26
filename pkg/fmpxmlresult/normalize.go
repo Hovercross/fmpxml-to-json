@@ -55,11 +55,6 @@ func (fmp FMPXMLResult) getNormalizer(f Field, normalizers map[string]datumNorma
 	return getArrayEncoder(dn)
 }
 
-// The default string based encoder
-func encodeString(s string) (json.RawMessage, error) {
-	return mustMarshal(s), nil
-}
-
 // getSingleEncoder will wrap an individual datum normalizer into a
 // field normalizer that doesn't do any array wrapping, but does length checks
 func getSingleEncoder(f datumNormalizer) fieldNormalizer {
@@ -105,8 +100,7 @@ func getArrayEncoder(f datumNormalizer) fieldNormalizer {
 			out[i] = encoded
 		}
 
-		// We can never fail and encoding a bunch of raw JSON messages, as we are just putting brackets and commas in
-		return mustMarshal(out), nil
+		return json.Marshal(out)
 	}
 
 	return outFunc

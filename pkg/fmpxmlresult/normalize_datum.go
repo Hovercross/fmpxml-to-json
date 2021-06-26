@@ -4,7 +4,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 )
+
+// The default string based encoder
+func encodeString(s string) (json.RawMessage, error) {
+	return json.Marshal(s)
+}
+
+func getDtNormalizer(inFormat, outFormat string) datumNormalizer {
+	out := func(s string) (json.RawMessage, error) {
+		dt, err := time.Parse(inFormat, s)
+
+		if err != nil {
+			return nil, err
+		}
+
+		output := dt.Format(outFormat)
+
+		encoded, err := json.Marshal(output)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return json.RawMessage(encoded), nil
+	}
+
+	return out
+}
 
 // Run through all the available number parsers to try to get a valid value out
 func parseNumber(s string) (json.RawMessage, error) {
