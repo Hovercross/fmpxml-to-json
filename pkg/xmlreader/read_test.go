@@ -19,7 +19,7 @@ func Test_Parse(t *testing.T) {
 		<METADATA>
 			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="First" TYPE="TEXT"/>
 			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
-			<FIELD EMPTYOK="NO" MAXREPEAT="1" NAME="Email" TYPE="TEXT"/>
+			<FIELD EMPTYOK="NO" MAXREPEAT="2" NAME="Email" TYPE="TEXT"/>
 		</METADATA>
 		<RESULTSET FOUND="1">
 			<ROW MODID="196" RECORDID="683">
@@ -31,6 +31,7 @@ func Test_Parse(t *testing.T) {
 				</COL>
 				<COL>
 					<DATA>apeacock@example.org</DATA>
+					<DATA>apeacock-test@example.org</DATA>
 				</COL>
 			</ROW>
 			
@@ -50,7 +51,7 @@ func Test_Parse(t *testing.T) {
 		Fields: []fmpxmlresult.Field{
 			{EmptyOK: true, MaxRepeat: 1, Name: "First", Type: "TEXT"},
 			{EmptyOK: true, MaxRepeat: 1, Name: "Last", Type: "TEXT"},
-			{EmptyOK: false, MaxRepeat: 1, Name: "Email", Type: "TEXT"},
+			{EmptyOK: false, MaxRepeat: 2, Name: "Email", Type: "TEXT"},
 		},
 	}
 
@@ -74,7 +75,7 @@ func Test_Parse(t *testing.T) {
 			{ModID: "196", RecordID: "683", Cols: []fmpxmlresult.Col{
 				{Data: []string{"Adam"}},
 				{Data: []string{"Peacock"}},
-				{Data: []string{"apeacock@example.org"}},
+				{Data: []string{"apeacock@example.org", "apeacock-test@example.org"}},
 			}},
 		},
 	}
