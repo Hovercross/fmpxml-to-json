@@ -10,7 +10,7 @@ There are five options to the utility controlling the input, output, and some fo
 
 - `-input`: The input file to read, defaulting to "-" for STDIN
 - `-output`: The output file to write to, defaulting to "-" for STDOUT
-- `-short`: Skip the mostly duplicate RecordSet output results
+- `-full`: Include a full original copy of the Filemaker data, including the metadata and result set
 - `-recordID`: The field name to add the Record ID to
 - `-modID`: The field name to add the Modification ID to
 

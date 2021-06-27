@@ -9,7 +9,23 @@
         "program": "${workspaceFolder}/cmd/fmpxml-to-json/",
         "args": [
           "-input", "${workspaceFolder}/sample.xml",
-          "-output", "${workspaceFolder}/sample.json"
+          "-output", "${workspaceFolder}/sample.json",
+          "-recordID", "recordID",
+          "-modID", "modificationID"
+        ]
+      },
+      {
+        "name": "Convert sample data with full output",
+        "type": "go",
+        "request": "launch",
+        "mode": "debug",
+        "program": "${workspaceFolder}/cmd/fmpxml-to-json/",
+        "args": [
+          "-input", "${workspaceFolder}/sample.xml",
+          "-output", "${workspaceFolder}/sample-full.json",
+          "-recordID", "recordID",
+          "-modID", "modificationID",
+          "-full"
         ]
       }
     ]

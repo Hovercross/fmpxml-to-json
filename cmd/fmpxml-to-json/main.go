@@ -7,19 +7,18 @@ import (
 	"log"
 	"os"
 
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 	"github.com/hovercross/fmpxml-to-json/pkg/xmlreader"
 )
 
 func main() {
 	var inFileName, outFileName, recordIDField, modIDField string
-	var short bool
+	var full bool
 
 	flag.StringVar(&inFileName, "input", "-", "File to read from, or \"-\" for STDIN")
 	flag.StringVar(&outFileName, "output", "-", "File to write to, or \"-\" for STDOUT")
 	flag.StringVar(&recordIDField, "recordID", "", "Field name to write the record ID value to")
 	flag.StringVar(&modIDField, "modID", "", "Field name to write the modification ID value to")
-	flag.BoolVar(&short, "short", false, "Remove the original record set")
+	flag.BoolVar(&full, "full", false, "Keep all the original data")
 
 	flag.Parse()
 
@@ -53,8 +52,9 @@ func main() {
 		log.Fatalf("Unable to convert record format: %v", err)
 	}
 
-	if short {
-		parsed.ResultSet = fmpxmlresult.ResultSet{}
+	if !full {
+		parsed.ResultSet = nil
+		parsed.Metadata = nil
 	}
 
 	var writer io.WriteCloser
