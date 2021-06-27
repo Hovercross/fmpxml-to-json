@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// This file has all the translation functions for strings/numbers/dates/etc to raw JSON
+
 // a dataEncoder will convert a single string stored within a <DATA> element into an appropriate JSON value
 type dataEncoder func(string) (json.RawMessage, error)
 
