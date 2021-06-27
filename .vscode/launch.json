@@ -8,8 +8,8 @@
         "mode": "debug",
         "program": "${workspaceFolder}/cmd/fmpxml-to-json/",
         "args": [
-          "-input", "${workspaceFolder}/sample.xml",
-          "-output", "${workspaceFolder}/sample.json",
+          "-input", "${workspaceFolder}/samples/sample.xml",
+          "-output", "${workspaceFolder}/samples/sample.json",
           "-recordID", "recordID",
           "-modID", "modificationID"
         ]
@@ -21,8 +21,8 @@
         "mode": "debug",
         "program": "${workspaceFolder}/cmd/fmpxml-to-json/",
         "args": [
-          "-input", "${workspaceFolder}/sample.xml",
-          "-output", "${workspaceFolder}/sample-full.json",
+          "-input", "${workspaceFolder}/samples/sample.xml",
+          "-output", "${workspaceFolder}/samples/sample-full.json",
           "-recordID", "recordID",
           "-modID", "modificationID",
           "-full"
