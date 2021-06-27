@@ -16,6 +16,7 @@ func Test_Populate(t *testing.T) {
 			{EmptyOK: false, MaxRepeat: 2, Name: "Email", Type: "TEXT"},
 			{EmptyOK: true, MaxRepeat: 1, Name: "Birthday", Type: "DATE"},
 			{EmptyOK: true, MaxRepeat: 1, Name: "Favorite Time", Type: "TIME"},
+			{EmptyOK: true, MaxRepeat: 2, Name: "Favorite Number", Type: "NUMBER"},
 		},
 	}
 
@@ -36,6 +37,7 @@ func Test_Populate(t *testing.T) {
 				{Data: []string{"apeacock@example.org", "apeacock-test@example.org"}},
 				{Data: []string{"1/11/1986"}},
 				{Data: []string{"8:09:21 PM"}},
+				{Data: []string{"42", "41.1"}},
 			}},
 		},
 	}
@@ -57,11 +59,12 @@ func Test_Populate(t *testing.T) {
 	// Records should be quoted as raw messages
 	expectedRecords := []fmpxmlresult.Record{
 		{
-			"First":         json.RawMessage(`"Adam"`),
-			"Last":          json.RawMessage(`"Peacock"`),
-			"Email":         json.RawMessage(`["apeacock@example.org","apeacock-test@example.org"]`),
-			"Birthday":      json.RawMessage(`"1986-01-11"`),
-			"Favorite Time": json.RawMessage(`"20:09:21"`),
+			"First":           json.RawMessage(`"Adam"`),
+			"Last":            json.RawMessage(`"Peacock"`),
+			"Email":           json.RawMessage(`["apeacock@example.org","apeacock-test@example.org"]`),
+			"Birthday":        json.RawMessage(`"1986-01-11"`),
+			"Favorite Time":   json.RawMessage(`"20:09:21"`),
+			"Favorite Number": json.RawMessage(`[42,41.1]`),
 
 			"recordID":       json.RawMessage(`"683"`),
 			"modificationID": json.RawMessage(`"196"`),
