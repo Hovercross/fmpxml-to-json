@@ -13,9 +13,6 @@ type fieldEncoder func([]string) (json.RawMessage, error)
 
 // PopulateRecords will create all the easy to read record data
 func (fmp *FMPXMLResult) PopulateRecords() error {
-	fmp.m.Lock()
-	defer fmp.m.Unlock()
-
 	fmp.populateFieldEncoders()
 
 	// Empty out our record destination, and allocate it in a single go
