@@ -25,11 +25,8 @@ func getTimeEncoder(inFormat, outFormat string) dataEncoder {
 
 		output := dt.Format(outFormat)
 
-		encoded, err := json.Marshal(output)
-
-		if err != nil {
-			return nil, err
-		}
+		// Swallow the error: marshaling a string can never fail
+		encoded, _ := json.Marshal(output)
 
 		return json.RawMessage(encoded), nil
 	}
