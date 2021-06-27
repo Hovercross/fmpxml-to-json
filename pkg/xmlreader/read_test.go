@@ -20,6 +20,8 @@ func Test_Parse(t *testing.T) {
 			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="First" TYPE="TEXT"/>
 			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Last" TYPE="TEXT"/>
 			<FIELD EMPTYOK="NO" MAXREPEAT="2" NAME="Email" TYPE="TEXT"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Birthday" TYPE="DATE"/>
+			<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Favorite Time" TYPE="TIME"/>
 		</METADATA>
 		<RESULTSET FOUND="1">
 			<ROW MODID="196" RECORDID="683">
@@ -32,6 +34,12 @@ func Test_Parse(t *testing.T) {
 				<COL>
 					<DATA>apeacock@example.org</DATA>
 					<DATA>apeacock-test@example.org</DATA>
+				</COL>
+				<COL>
+					<DATA>1/11/1986</DATA>
+				</COL>
+				<COL>
+					<DATA>8:09:21 PM</DATA>
 				</COL>
 			</ROW>
 			
@@ -52,6 +60,8 @@ func Test_Parse(t *testing.T) {
 			{EmptyOK: true, MaxRepeat: 1, Name: "First", Type: "TEXT"},
 			{EmptyOK: true, MaxRepeat: 1, Name: "Last", Type: "TEXT"},
 			{EmptyOK: false, MaxRepeat: 2, Name: "Email", Type: "TEXT"},
+			{EmptyOK: true, MaxRepeat: 1, Name: "Birthday", Type: "DATE"},
+			{EmptyOK: true, MaxRepeat: 1, Name: "Favorite Time", Type: "TIME"},
 		},
 	}
 
@@ -76,6 +86,8 @@ func Test_Parse(t *testing.T) {
 				{Data: []string{"Adam"}},
 				{Data: []string{"Peacock"}},
 				{Data: []string{"apeacock@example.org", "apeacock-test@example.org"}},
+				{Data: []string{"1/11/1986"}},
+				{Data: []string{"8:09:21 PM"}},
 			}},
 		},
 	}
