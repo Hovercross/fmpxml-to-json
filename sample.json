@@ -1,0 +1,96 @@
+{
+  "errorCode": 0,
+  "product": {
+    "build": "5/23/2002",
+    "name": "FileMaker Pro",
+    "version": "7.0"
+  },
+  "metadata": {
+    "Fields": [
+      {
+        "EmptyOK": false,
+        "MaxRepeat": 1,
+        "Name": "First Name",
+        "Type": "TEXT"
+      },
+      {
+        "EmptyOK": false,
+        "MaxRepeat": 1,
+        "Name": "Last Name",
+        "Type": "TEXT"
+      },
+      {
+        "EmptyOK": true,
+        "MaxRepeat": 1,
+        "Name": "Department",
+        "Type": "TEXT"
+      }
+    ]
+  },
+  "database": {
+    "dateFormat": "MM/dd/yy",
+    "timeFormat": "hh:mm:ss",
+    "layout": "summary",
+    "name": "Employees.fmp12",
+    "records": 23
+  },
+  "resultSet": {
+    "Found": 2,
+    "Rows": [
+      {
+        "ModID": "47",
+        "RecordID": "34",
+        "Cols": [
+          {
+            "Data": [
+              "Joe"
+            ]
+          },
+          {
+            "Data": [
+              "Smith"
+            ]
+          },
+          {
+            "Data": [
+              "Engineering"
+            ]
+          }
+        ]
+      },
+      {
+        "ModID": "89",
+        "RecordID": "78",
+        "Cols": [
+          {
+            "Data": [
+              "Susan"
+            ]
+          },
+          {
+            "Data": [
+              "Jones"
+            ]
+          },
+          {
+            "Data": [
+              "Marketing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "records": [
+    {
+      "Department": "Engineering",
+      "First Name": "Joe",
+      "Last Name": "Smith"
+    },
+    {
+      "Department": "Marketing",
+      "First Name": "Susan",
+      "Last Name": "Jones"
+    }
+  ]
+}
