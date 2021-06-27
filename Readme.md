@@ -20,6 +20,12 @@ Generating `sample.json` from `sample.xml`, assuming the binary has been compile
 
 `./fmpxml-to-json -input sample.xml -output sample.json`
 
+In the vast majority of cases, applications wanting to ingest Filemaker data from the JSON form will look at the *records* field of the JSON output. This is in a "normal" format that most applications will be expecting - an array of dictionaries, where each dictionary is a row from the original file.
+
+## Limitations
+
+- Currently, the entire XML file needs to get read into memory before parsing and transforming the data. If very large files are being manipulated, the memory requirements of the binary will be proportionally large.
+
 ## Building
 
 There is only one dependency currently, and it is only used for testing. To build the application, after installing Go, run `go build -o ./fmpxml-to-json cmd/convert/main.go`
