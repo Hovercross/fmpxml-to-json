@@ -55,5 +55,11 @@ type FMPXMLResult struct {
 	Database  Database  `json:"database,omitempty"`
 	ResultSet ResultSet `json:"resultSet,omitempty"`
 
+	// These will be set externally before PopulateRecords().
+	// If they are set, the record ID and mod ID will be loaded into the corresponding field names
+
+	RecordIDField string `json:"-"`
+	ModIDField    string `json:"-"`
+
 	Records []Record `json:"records,omitempty"`
 }

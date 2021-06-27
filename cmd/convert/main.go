@@ -12,12 +12,15 @@ import (
 )
 
 func main() {
-	var inFileName, outFileName string
+	var inFileName, outFileName, recordIDField, modIDField string
 	var short bool
 
 	flag.StringVar(&inFileName, "input", "-", "File to read from, or \"-\" for STDIN")
 	flag.StringVar(&outFileName, "output", "-", "File to write to, or \"-\" for STDOUT")
+	flag.StringVar(&recordIDField, "recordID", "", "Field name to write the record ID value to")
+	flag.StringVar(&modIDField, "modID", "", "Field name to write the modification ID value to")
 	flag.BoolVar(&short, "short", false, "Remove the original record set")
+
 	flag.Parse()
 
 	var reader io.ReadCloser

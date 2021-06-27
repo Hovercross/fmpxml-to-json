@@ -42,6 +42,16 @@ func (fmp *FMPXMLResult) PopulateRecords() error {
 	for i, row := range fmp.ResultSet.Rows {
 		record := Record{}
 
+		if fmp.RecordIDField != "" {
+			recordID, _ := json.Marshal(row.RecordID) // You can never fail to marshal a string
+			record[fmp.RecordIDField] = recordID
+		}
+
+		if fmp.ModIDField != "" {
+			modID, _ := json.Marshal(row.ModID) // You can never fail to marshal a string
+			record[fmp.ModIDField] = modID
+		}
+
 		for j, col := range row.Cols {
 			encoder := normalizersByPosition[j]
 			name := fieldNamesByPosition[j]
