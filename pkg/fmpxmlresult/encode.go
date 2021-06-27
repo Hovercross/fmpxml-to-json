@@ -59,6 +59,20 @@ func (fmp *FMPXMLResult) PopulateRecords() error {
 	return nil
 }
 
+func (fmp *FMPXMLResult) populateFieldEncoders() {
+	fmp.populateDataEncoders()
+
+	fmp.positionalColumnData = make([]columnarData, len(fmp.Metadata.Fields))
+
+	// Load each of the encoders
+	for i, field := range fmp.Metadata.Fields {
+		fmp.positionalColumnData[i] = columnarData{
+			fmp.getEncoder(field),
+			field.Name,
+		}
+	}
+}
+
 func (fmp *FMPXMLResult) populateDataEncoders() {
 	dateFormat := timeconv.ParseDateFormat(fmp.Database.DateFormat)
 	timeFormat := timeconv.ParseTimeFormat(fmp.Database.TimeFormat)
@@ -87,25 +101,4 @@ func (fmp *FMPXMLResult) getEncoder(f Field) fieldEncoder {
 	}
 
 	return getArrayEncoder(dn)
-}
-
-func (fmp *FMPXMLResult) populateFieldEncoders() {
-	fmp.populateDataEncoders()
-
-	fmp.positionalColumnData = make([]columnarData, len(fmp.Metadata.Fields))
-
-	// Load each of the encoders
-	for i, field := range fmp.Metadata.Fields {
-		fmp.positionalColumnData[i] = columnarData{
-			fmp.getEncoder(field),
-			field.Name,
-		}
-	}
-
-}
-
-// This will hold the information we need to reference by field order when iterating through the columns of a row
-type columnarData struct {
-	encoder fieldEncoder
-	name    string
 }

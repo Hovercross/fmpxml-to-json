@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// This is the internal data format, but with sane data types
+// This is the internal FMPXMLResult data format, but with sane data types after conversion
 
 type Product struct {
 	Build   string `json:"build"`
@@ -69,4 +69,10 @@ type FMPXMLResult struct {
 	positionalColumnData []columnarData         // The positional column data includes both the column name and how to translate that particular field into a JSON object
 
 	m sync.Mutex // Don't use this thing concurrently... but just in case it is, lock the internal state
+}
+
+// This will hold the information we need to reference by field order when iterating through the columns of a row
+type columnarData struct {
+	encoder fieldEncoder
+	name    string
 }
