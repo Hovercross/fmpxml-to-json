@@ -45,6 +45,9 @@ func Test_Populate(t *testing.T) {
 		Database:  database,
 		Metadata:  metadata,
 		ResultSet: resultSet,
+
+		RecordIDField: "recordID",
+		ModIDField:    "modificationID",
 	}
 
 	if err := sample.PopulateRecords(); err != nil {
@@ -59,6 +62,9 @@ func Test_Populate(t *testing.T) {
 			"Email":         json.RawMessage(`["apeacock@example.org","apeacock-test@example.org"]`),
 			"Birthday":      json.RawMessage(`"1986-01-11"`),
 			"Favorite Time": json.RawMessage(`"20:09:21"`),
+
+			"recordID":       json.RawMessage(`"683"`),
+			"modificationID": json.RawMessage(`"196"`),
 		},
 	}
 
