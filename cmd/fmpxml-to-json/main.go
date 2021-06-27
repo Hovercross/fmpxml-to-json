@@ -45,6 +45,10 @@ func main() {
 		log.Fatalf("Unable to read input XML: %v", parseErr)
 	}
 
+	// These must be populated before calling PopulateRecords
+	parsed.RecordIDField = recordIDField
+	parsed.ModIDField = modIDField
+
 	if err := parsed.PopulateRecords(); err != nil {
 		log.Fatalf("Unable to convert record format: %v", err)
 	}
