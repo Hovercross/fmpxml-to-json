@@ -1,6 +1,9 @@
 package fmpxmlresult
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sync"
+)
 
 // This is the internal data format, but with sane data types
 
@@ -57,9 +60,13 @@ type FMPXMLResult struct {
 
 	// These will be set externally before PopulateRecords().
 	// If they are set, the record ID and mod ID will be loaded into the corresponding field names
-
 	RecordIDField string `json:"-"`
 	ModIDField    string `json:"-"`
 
 	Records []Record `json:"records,omitempty"`
+
+	dataEncoders         map[string]dataEncoder // The data encoders are how we change a DATE into a date, or a NUMBER into a number
+	positionalColumnData []columnarData         // The positional column data includes both the column name and how to translate that particular field into a JSON object
+
+	m sync.Mutex // Don't use this thing concurrently... but just in case it is, lock the internal state
 }

@@ -13,28 +13,10 @@ type fieldEncoder func([]string) (json.RawMessage, error)
 
 // PopulateRecords will create all the easy to read record data
 func (fmp *FMPXMLResult) PopulateRecords() error {
-	dateFormat := timeconv.ParseDateFormat(fmp.Database.DateFormat)
-	timeFormat := timeconv.ParseTimeFormat(fmp.Database.TimeFormat)
-	timestampFormat := dateFormat + " " + timeFormat // No idea if this is right, don't have an example handy
+	fmp.m.Lock()
+	defer fmp.m.Unlock()
 
-	// The specific datum normalizers we will be using for this file
-	datumNormalizers := map[string]dataEncoder{
-		"DATE":      getTimeEncoder(dateFormat, "2006-01-02"),
-		"TIME":      getTimeEncoder(timeFormat, "15:04:05"),
-		"TIMESTAMP": getTimeEncoder(timestampFormat, "2006-01-02T15:04:05"),
-		"NUMBER":    encodeNumber,
-	}
-
-	// Since the fields are just in order, get the normalizers per ordered field, so we can
-	// then loop over the columns in each row and apply the ordered normalizer
-	normalizersByPosition := make([]fieldEncoder, len(fmp.Metadata.Fields))
-	fieldNamesByPosition := make([]string, len(fmp.Metadata.Fields))
-
-	// Load each of the normalizers
-	for i, field := range fmp.Metadata.Fields {
-		normalizersByPosition[i] = fmp.getEncoder(field, datumNormalizers)
-		fieldNamesByPosition[i] = field.Name
-	}
+	fmp.populateFieldEncoders()
 
 	// Empty out our record destination, and allocate it in a single go
 	fmp.Records = make([]Record, len(fmp.ResultSet.Rows))
@@ -52,9 +34,15 @@ func (fmp *FMPXMLResult) PopulateRecords() error {
 			record[fmp.ModIDField] = modID
 		}
 
+		if len(row.Cols) != len(fmp.positionalColumnData) {
+			return fmt.Errorf("Row %d column count mismatch: have %d, expect %d", i, len(row.Cols), len(fmp.positionalColumnData))
+		}
+
 		for j, col := range row.Cols {
-			encoder := normalizersByPosition[j]
-			name := fieldNamesByPosition[j]
+			positionalItem := fmp.positionalColumnData[j]
+
+			encoder := positionalItem.encoder
+			name := positionalItem.name
 
 			encoded, err := encoder(col.Data)
 
@@ -71,11 +59,26 @@ func (fmp *FMPXMLResult) PopulateRecords() error {
 	return nil
 }
 
-func (fmp FMPXMLResult) getEncoder(f Field, normalizers map[string]dataEncoder) fieldEncoder {
+func (fmp *FMPXMLResult) populateDataEncoders() {
+	dateFormat := timeconv.ParseDateFormat(fmp.Database.DateFormat)
+	timeFormat := timeconv.ParseTimeFormat(fmp.Database.TimeFormat)
+	timestampFormat := dateFormat + " " + timeFormat // No idea if this is right, don't have an example handy
+
+	// The specific datum normalizers we will be using for this file
+	fmp.dataEncoders = map[string]dataEncoder{
+		"DATE":      getTimeEncoder(dateFormat, "2006-01-02"),
+		"TIME":      getTimeEncoder(timeFormat, "15:04:05"),
+		"TIMESTAMP": getTimeEncoder(timestampFormat, "2006-01-02T15:04:05"),
+		"NUMBER":    encodeNumber,
+	}
+}
+
+// Get the encoder for a given field
+func (fmp *FMPXMLResult) getEncoder(f Field) fieldEncoder {
 	var dn dataEncoder = encodeString // Just a default
 
 	// Override the string encoder, if we have a more appropriate encoder
-	if v, found := normalizers[f.Type]; found {
+	if v, found := fmp.dataEncoders[f.Type]; found {
 		dn = v
 	}
 
@@ -84,6 +87,21 @@ func (fmp FMPXMLResult) getEncoder(f Field, normalizers map[string]dataEncoder) 
 	}
 
 	return getArrayEncoder(dn)
+}
+
+func (fmp *FMPXMLResult) populateFieldEncoders() {
+	fmp.populateDataEncoders()
+
+	fmp.positionalColumnData = make([]columnarData, len(fmp.Metadata.Fields))
+
+	// Load each of the encoders
+	for i, field := range fmp.Metadata.Fields {
+		fmp.positionalColumnData[i] = columnarData{
+			fmp.getEncoder(field),
+			field.Name,
+		}
+	}
+
 }
 
 // getScalarEncoder will wrap an individual datum normalizer into a
@@ -135,4 +153,10 @@ func getArrayEncoder(f dataEncoder) fieldEncoder {
 	}
 
 	return outFunc
+}
+
+// This will hold the information we need to reference by field order when iterating through the columns of a row
+type columnarData struct {
+	encoder fieldEncoder
+	name    string
 }

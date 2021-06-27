@@ -224,6 +224,42 @@ func Test_InvalidArray(t *testing.T) {
 
 	if err := sample.PopulateRecords(); err == nil {
 		t.Error("Err is nil")
+	}
+}
 
+func Test_ColumnMismatch(t *testing.T) {
+	metadata := fmpxmlresult.Metadata{
+		Fields: []fmpxmlresult.Field{
+			{EmptyOK: true, MaxRepeat: 1, Name: "First", Type: "TEXT"},
+		},
+	}
+
+	database := fmpxmlresult.Database{
+		DateFormat: "M/d/yyyy",
+		Layout:     "Overview",
+		Name:       "test.fmp12",
+		Records:    1,
+		TimeFormat: "h:mm:ss a",
+	}
+
+	resultSet := fmpxmlresult.ResultSet{
+		Found: 1,
+		Rows: []fmpxmlresult.Row{
+			{ModID: "196", RecordID: "683", Cols: []fmpxmlresult.Col{
+				{Data: []string{"Adam"}},
+				{Data: []string{"Peacock"}},
+			}},
+		},
+	}
+
+	sample := fmpxmlresult.FMPXMLResult{
+		ErrorCode: 15,
+		Database:  database,
+		Metadata:  metadata,
+		ResultSet: resultSet,
+	}
+
+	if err := sample.PopulateRecords(); err == nil {
+		t.Error("Err is nil")
 	}
 }
