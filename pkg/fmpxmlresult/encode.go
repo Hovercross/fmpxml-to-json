@@ -92,7 +92,7 @@ func getScalarEncoder(f dataEncoder) fieldEncoder {
 	// Inner function: Checks the input length, performs the parse, and then returns the result
 	out := func(input []string) (json.RawMessage, error) {
 		if len(input) == 0 {
-			return nil, nil
+			return json.Marshal(nil)
 		}
 
 		if len(input) != 1 {
