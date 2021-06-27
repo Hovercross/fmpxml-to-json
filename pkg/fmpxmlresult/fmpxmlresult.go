@@ -21,41 +21,41 @@ type Database struct {
 }
 
 type Field struct {
-	EmptyOK   bool
-	MaxRepeat int
-	Name      string
-	Type      string
+	EmptyOK   bool   `json:"emptyOK"`
+	MaxRepeat int    `json:"maxRepeat"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
 }
 
 type Metadata struct {
-	Fields []Field
+	Fields []Field `json:"fields,omitempty"`
 }
 
 type ResultSet struct {
-	Found int
-	Rows  []Row
+	Found int   `json:"found"`
+	Rows  []Row `json:"rows"`
 }
 
 type Col struct {
-	Data []string
+	Data []string `json:"data"`
 }
 
 // Row is the original FMPXMLRESULT row
 type Row struct {
-	ModID    string // I'm not sure if this could not be an int, but as an identifier a string is A-OK
-	RecordID string // I'm not sure if this could not be an int, but as an identifier a string is A-OK
-	Cols     []Col
+	ModID    string `json:"modID"`    // I'm not sure if this could not be an int, but as an identifier a string is A-OK
+	RecordID string `json:"recordID"` // I'm not sure if this could not be an int, but as an identifier a string is A-OK
+	Cols     []Col  `json:"cols"`
 }
 
 // Record is the normalized output for easy JSON work. The value may be a scalar or an array, based on the field repeat
 type Record map[string]json.RawMessage
 
 type FMPXMLResult struct {
-	ErrorCode int       `json:"errorCode"`
-	Product   Product   `json:"product,omitempty"`
-	Metadata  Metadata  `json:"metadata,omitempty"`
-	Database  Database  `json:"database,omitempty"`
-	ResultSet ResultSet `json:"resultSet,omitempty"`
+	ErrorCode int        `json:"errorCode"`
+	Product   *Product   `json:"product,omitempty"`
+	Metadata  *Metadata  `json:"metadata,omitempty"`
+	Database  *Database  `json:"database,omitempty"`
+	ResultSet *ResultSet `json:"resultSet,omitempty"`
 
 	// These will be set externally before PopulateRecords().
 	// If they are set, the record ID and mod ID will be loaded into the corresponding field names

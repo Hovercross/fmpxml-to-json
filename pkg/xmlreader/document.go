@@ -16,7 +16,7 @@ type document struct {
 	ResultSet resultSet `xml:"RESULTSET"`
 }
 
-func (d document) Normalize() (fmpxmlresult.FMPXMLResult, error) {
+func (d document) Normalize() (*fmpxmlresult.FMPXMLResult, error) {
 	out := fmpxmlresult.FMPXMLResult{
 		ErrorCode: d.ErrorCode,
 	}
@@ -26,16 +26,16 @@ func (d document) Normalize() (fmpxmlresult.FMPXMLResult, error) {
 	out.Product = d.Product.Normalize()
 
 	if out.Metadata, err = d.Metadata.Normalize(); err != nil {
-		return out, fmt.Errorf("Could not parse metadata: %s", err)
+		return nil, fmt.Errorf("Could not parse metadata: %s", err)
 	}
 
 	if out.Database, err = d.Database.Normalize(); err != nil {
-		return out, fmt.Errorf("Could not parse database: %s", err)
+		return nil, fmt.Errorf("Could not parse database: %s", err)
 	}
 
 	if out.ResultSet, err = d.ResultSet.Normalize(); err != nil {
-		return out, fmt.Errorf("Could not parse result set: %s", err)
+		return nil, fmt.Errorf("Could not parse result set: %s", err)
 	}
 
-	return out, nil
+	return &out, nil
 }

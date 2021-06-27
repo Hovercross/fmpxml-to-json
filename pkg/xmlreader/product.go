@@ -9,8 +9,8 @@ type product struct {
 }
 
 // Normalize to the standardized output
-func (p product) Normalize() fmpxmlresult.Product {
-	return fmpxmlresult.Product{
+func (p product) Normalize() *fmpxmlresult.Product {
+	return &fmpxmlresult.Product{
 		Name:    p.Name,
 		Build:   p.Build,
 		Version: p.Version,

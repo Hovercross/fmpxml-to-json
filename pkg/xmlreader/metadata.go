@@ -12,7 +12,7 @@ type metadata struct {
 	Fields  []field  `xml:"FIELD"`
 }
 
-func (m metadata) Normalize() (fmpxmlresult.Metadata, error) {
+func (m metadata) Normalize() (*fmpxmlresult.Metadata, error) {
 	out := fmpxmlresult.Metadata{
 		Fields: make([]fmpxmlresult.Field, len(m.Fields)),
 	}
@@ -21,11 +21,11 @@ func (m metadata) Normalize() (fmpxmlresult.Metadata, error) {
 		normalized, err := field.Normalize()
 
 		if err != nil {
-			return out, fmt.Errorf("Could not parse field %d: %s", i, err)
+			return nil, fmt.Errorf("Could not parse field %d: %s", i, err)
 		}
 
 		out.Fields[i] = normalized
 	}
 
-	return out, nil
+	return &out, nil
 }

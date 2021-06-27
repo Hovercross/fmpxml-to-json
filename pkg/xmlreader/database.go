@@ -15,7 +15,7 @@ type database struct {
 	TimeFormat string `xml:"TIMEFORMAT,attr"`
 }
 
-func (d database) Normalize() (fmpxmlresult.Database, error) {
+func (d database) Normalize() (*fmpxmlresult.Database, error) {
 	out := fmpxmlresult.Database{
 		DateFormat: d.DateFormat,
 		Layout:     d.Layout,
@@ -26,10 +26,10 @@ func (d database) Normalize() (fmpxmlresult.Database, error) {
 	records, err := strconv.Atoi(d.Records)
 
 	if err != nil {
-		return out, fmt.Errorf("Could not parse records '%s' into integer: %s", d.Records, err)
+		return nil, fmt.Errorf("Could not parse records '%s' into integer: %s", d.Records, err)
 	}
 
 	out.Records = records
 
-	return out, nil
+	return &out, nil
 }

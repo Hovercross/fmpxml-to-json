@@ -46,9 +46,9 @@ func Test_Populate(t *testing.T) {
 
 	sample := fmpxmlresult.FMPXMLResult{
 		ErrorCode: 15,
-		Database:  database,
-		Metadata:  metadata,
-		ResultSet: resultSet,
+		Database:  &database,
+		Metadata:  &metadata,
+		ResultSet: &resultSet,
 
 		RecordIDField: "recordID",
 		ModIDField:    "modificationID",
@@ -106,9 +106,9 @@ func Test_InvalidNumber(t *testing.T) {
 
 	sample := fmpxmlresult.FMPXMLResult{
 		ErrorCode: 15,
-		Database:  database,
-		Metadata:  metadata,
-		ResultSet: resultSet,
+		Database:  &database,
+		Metadata:  &metadata,
+		ResultSet: &resultSet,
 	}
 
 	if err := sample.PopulateRecords(); err == nil {
@@ -143,9 +143,9 @@ func Test_InvalidDate(t *testing.T) {
 
 	sample := fmpxmlresult.FMPXMLResult{
 		ErrorCode: 15,
-		Database:  database,
-		Metadata:  metadata,
-		ResultSet: resultSet,
+		Database:  &database,
+		Metadata:  &metadata,
+		ResultSet: &resultSet,
 	}
 
 	if err := sample.PopulateRecords(); err == nil {
@@ -180,9 +180,9 @@ func Test_TooManyScalars(t *testing.T) {
 
 	sample := fmpxmlresult.FMPXMLResult{
 		ErrorCode: 15,
-		Database:  database,
-		Metadata:  metadata,
-		ResultSet: resultSet,
+		Database:  &database,
+		Metadata:  &metadata,
+		ResultSet: &resultSet,
 	}
 
 	if err := sample.PopulateRecords(); err == nil {
@@ -217,9 +217,9 @@ func Test_InvalidArray(t *testing.T) {
 
 	sample := fmpxmlresult.FMPXMLResult{
 		ErrorCode: 15,
-		Database:  database,
-		Metadata:  metadata,
-		ResultSet: resultSet,
+		Database:  &database,
+		Metadata:  &metadata,
+		ResultSet: &resultSet,
 	}
 
 	if err := sample.PopulateRecords(); err == nil {
@@ -254,9 +254,9 @@ func Test_ColumnMismatch(t *testing.T) {
 
 	sample := fmpxmlresult.FMPXMLResult{
 		ErrorCode: 15,
-		Database:  database,
-		Metadata:  metadata,
-		ResultSet: resultSet,
+		Database:  &database,
+		Metadata:  &metadata,
+		ResultSet: &resultSet,
 	}
 
 	if err := sample.PopulateRecords(); err == nil {

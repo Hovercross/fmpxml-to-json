@@ -92,12 +92,12 @@ func Test_Parse(t *testing.T) {
 		},
 	}
 
-	expected := fmpxmlresult.FMPXMLResult{
+	expected := &fmpxmlresult.FMPXMLResult{
 		ErrorCode: 15,
-		Product:   expectedProduct,
-		Database:  expectedDatabase,
-		Metadata:  expectedMetadata,
-		ResultSet: expectedResultSet,
+		Product:   &expectedProduct,
+		Database:  &expectedDatabase,
+		Metadata:  &expectedMetadata,
+		ResultSet: &expectedResultSet,
 	}
 
 	for _, diff := range deep.Equal(parsed, expected) {

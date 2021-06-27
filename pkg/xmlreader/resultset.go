@@ -14,7 +14,7 @@ type resultSet struct {
 	Rows    []row    `xml:"ROW"`
 }
 
-func (rs resultSet) Normalize() (fmpxmlresult.ResultSet, error) {
+func (rs resultSet) Normalize() (*fmpxmlresult.ResultSet, error) {
 	out := fmpxmlresult.ResultSet{
 		Rows: make([]fmpxmlresult.Row, len(rs.Rows)),
 	}
@@ -22,7 +22,7 @@ func (rs resultSet) Normalize() (fmpxmlresult.ResultSet, error) {
 	found, err := strconv.Atoi(rs.Found)
 
 	if err != nil {
-		return out, fmt.Errorf("Could not parse found count: '%s': %s", rs.Found, err)
+		return nil, fmt.Errorf("Could not parse found count: '%s': %s", rs.Found, err)
 	}
 
 	out.Found = found
@@ -31,5 +31,5 @@ func (rs resultSet) Normalize() (fmpxmlresult.ResultSet, error) {
 		out.Rows[i] = row.Normalize()
 	}
 
-	return out, nil
+	return &out, nil
 }
