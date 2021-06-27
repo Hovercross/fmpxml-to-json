@@ -18,7 +18,7 @@ Basic usage example:
 
 Generating `sample.json` from `sample.xml`, assuming the binary has been compiled to `fmpxml-to-json`:
 
-`./fmpxml-to-json -input sample.xml -output sample.json`
+`./fmpxml-to-json -input samples/sample.xml -output samples/sample.json -recordID recordID -modID modificationID`
 
 In the vast majority of cases, applications wanting to ingest Filemaker data from the JSON form will look at the *records* field of the JSON output. This is in a "normal" format that most applications will be expecting - an array of dictionaries, where each dictionary is a row from the original file.
 
@@ -28,7 +28,7 @@ In the vast majority of cases, applications wanting to ingest Filemaker data fro
 
 ## Building
 
-There is only one dependency currently, and it is only used for testing. To build the application, after installing Go, run `go build -o ./fmpxml-to-json cmd/convert/main.go`
+There is only one dependency currently, and it is only used for testing. To build the application, after installing Go, run `go build -o ./fmpxml-to-json cmd/fmpxml-to-json/*.go`
 
 ## References
 
