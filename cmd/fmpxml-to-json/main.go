@@ -12,13 +12,14 @@ import (
 
 func main() {
 	var inFileName, outFileName, recordIDField, modIDField string
-	var full bool
+	var full, sanitizeNumbers bool
 
 	flag.StringVar(&inFileName, "input", "-", "File to read from, or \"-\" for STDIN")
 	flag.StringVar(&outFileName, "output", "-", "File to write to, or \"-\" for STDOUT")
 	flag.StringVar(&recordIDField, "recordID", "", "Field name to write the record ID value to")
 	flag.StringVar(&modIDField, "modID", "", "Field name to write the modification ID value to")
 	flag.BoolVar(&full, "full", false, "Keep all the original data")
+	flag.BoolVar(&sanitizeNumbers, "reformatNumbers", false, "Reformat numbers for compatibility")
 
 	flag.Parse()
 
@@ -55,6 +56,10 @@ func main() {
 	if !full {
 		parsed.ResultSet = nil
 		parsed.Metadata = nil
+	}
+
+	if sanitizeNumbers {
+		parsed.SanitizeNumbers = true
 	}
 
 	var writer io.WriteCloser

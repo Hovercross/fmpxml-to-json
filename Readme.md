@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a basic Go utility to convert a Filemaker FMPXMLResult type XML file into a JSON file. I was working with a client that has a very large Filemaker footprint that needed to sync their data with some external systems. Since the FMPXMLResult data format isn't the most friendly interchange format, this tool will take it and convert it to a much more "normal" JSON based format.
+This is a basic Go utility to convert a Filemaker FMPXMLResult type XML file into a JSON file. I was working with a client that has a very large Filemaker footprint that needed to sync their data with some external systems. Since the FMPXMLResult data format isn't the most friendly interchange format, this tool was written to take it and convert it to a much more "normal" JSON based format.
 
 ## Usage
 
@@ -11,8 +11,9 @@ There are five options to the utility controlling the input, output, and some fo
 - `-input`: The input file to read, defaulting to "-" for STDIN
 - `-output`: The output file to write to, defaulting to "-" for STDOUT
 - `-full`: Include a full original copy of the Filemaker data, including the metadata and result set
-- `-recordID`: The field name to add the Record ID to
-- `-modID`: The field name to add the Modification ID to
+- `-recordID`: The field name to use for the Record ID
+- `-modID`: The field name to use for the Modification ID
+- `-reformatNumbers`: Reformat all numeric columns, in the event that there is a numeric format within the file that Go can parse but Javascript can not - only needed if there are issues ingesting numbers into the destination system
 
 Basic usage example:
 
