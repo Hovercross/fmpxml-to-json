@@ -36,8 +36,23 @@ func getTimeEncoder(inFormat, outFormat string) dataEncoder {
 	return out
 }
 
-// Run through all the available number parsers to try to get a valid value out
-func encodeNumber(s string) (json.RawMessage, error) {
+// Just check if this is a number and include it as-is. This may have an issue
+// if there is a number that Go can parse, but Javascript cannot.
+func passthroughEncodeNumber(s string) (json.RawMessage, error) {
+	// Just attempt a float parse to see if this is numeric.
+	if _, err := strconv.ParseFloat(s, 64); err != nil {
+		return nil, err
+	}
+
+	// We have a parsable number. Just include it, since we don't want to lose precision doing,
+	// for example, an extremely long integer to float conversion
+
+	return json.RawMessage(s), nil
+}
+
+// Unlike the unsafe encoding, this will actually parse and then reformat the number
+// to ensure it's in a friendly format - not hex or binary or anything.
+func reformatEncodeNumber(s string) (json.RawMessage, error) {
 	type parser func(string) (json.RawMessage, error)
 
 	for _, f := range []parser{encodeInt, encodeFloat} {

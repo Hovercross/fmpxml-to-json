@@ -75,12 +75,17 @@ func (fmp *FMPXMLResult) populateDataEncoders() {
 	timeFormat := timeconv.ParseTimeFormat(fmp.Database.TimeFormat)
 	timestampFormat := dateFormat + " " + timeFormat // No idea if this is right, don't have an example handy
 
+	numericEncoder := passthroughEncodeNumber
+	if fmp.SanitizeNumbers {
+		numericEncoder = reformatEncodeNumber
+	}
+
 	// The specific datum normalizers we will be using for this file
 	fmp.dataEncoders = map[string]dataEncoder{
 		"DATE":      getTimeEncoder(dateFormat, "2006-01-02"),
 		"TIME":      getTimeEncoder(timeFormat, "15:04:05"),
 		"TIMESTAMP": getTimeEncoder(timestampFormat, "2006-01-02T15:04:05"),
-		"NUMBER":    encodeNumber,
+		"NUMBER":    numericEncoder,
 	}
 }
 

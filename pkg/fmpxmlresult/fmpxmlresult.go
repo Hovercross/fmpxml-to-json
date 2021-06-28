@@ -59,8 +59,9 @@ type FMPXMLResult struct {
 
 	// These will be set externally before PopulateRecords().
 	// If they are set, the record ID and mod ID will be loaded into the corresponding field names
-	RecordIDField string `json:"-"`
-	ModIDField    string `json:"-"`
+	RecordIDField   string `json:"-"` // The field to put the record ID in
+	ModIDField      string `json:"-"` // The field to put the modification ID in
+	SanitizeNumbers bool   `json:"-"` // If numbers should be reformatted, possibly with precision loss, or used as-is possibly (but unlikely) with compatibility issues
 
 	Records []Record `json:"records,omitempty"`
 
