@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/hovercross/fmpxml-to-json/pkg/stream"
 	"github.com/hovercross/fmpxml-to-json/pkg/xmlreader"
 )
 
@@ -36,6 +37,8 @@ func main() {
 			log.Fatalf("Unable to open '%s' for reading: %s", inFileName, err)
 		}
 	}
+
+	stream.Parse(reader, nil)
 
 	parsed, parseErr := xmlreader.ReadXML(reader)
 
