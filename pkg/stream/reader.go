@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -12,7 +13,8 @@ import (
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/paths"
 )
 
-type Parser struct {
+// A parser emits normalizes and emits various records types as it reads the file. It does not do column -> field mapping
+type parser struct {
 	Reader io.Reader
 
 	ErrorCodes chan<- int
@@ -21,15 +23,22 @@ type Parser struct {
 	Databases  chan<- fmpxmlresult.Database
 	Rows       chan<- fmpxmlresult.NormalizedRow
 
+	ctx          context.Context
 	currentSpace paths.SpaceChain
-
-	workingRow fmpxmlresult.NormalizedRow
+	workingRow   fmpxmlresult.NormalizedRow
 }
 
-func (p *Parser) Parse() error {
+func (p *parser) Parse() error {
 	decoder := xml.NewDecoder(p.Reader)
 
 	for {
+		// Check for cancelation before each token read
+		select {
+		case <-p.ctx.Done():
+			return context.Canceled
+		default:
+		}
+
 		token, err := decoder.Token()
 
 		if err == io.EOF {
@@ -58,8 +67,8 @@ func (p *Parser) Parse() error {
 	}
 }
 
-func (p *Parser) handleStart(elem xml.StartElement) error {
-	p.currentSpace = append(p.currentSpace, elem.Name)
+func (p *parser) handleStart(elem xml.StartElement) error {
+	p.pushSpace(elem)
 
 	if p.Products != nil && p.currentSpace.IsExact(paths.Product) {
 		return p.handleProduct(elem)
@@ -73,11 +82,11 @@ func (p *Parser) handleStart(elem xml.StartElement) error {
 		return p.handleField(elem)
 	}
 
-	if p.parseRows() && p.currentSpace.IsExact(paths.Row) {
+	if p.Rows != nil && p.currentSpace.IsExact(paths.Row) {
 		return p.handleRowStart(elem)
 	}
 
-	if p.parseRows() && p.currentSpace.IsExact(paths.Col) {
+	if p.Rows != nil && p.currentSpace.IsExact(paths.Col) {
 		p.handleColStart(elem)
 		return nil
 	}
@@ -86,17 +95,19 @@ func (p *Parser) handleStart(elem xml.StartElement) error {
 	return nil
 }
 
-func (p *Parser) handleEnd(elem xml.EndElement) {
+func (p *parser) handleEnd(elem xml.EndElement) error {
+	defer p.popSpace()
+
 	log.Printf("Exiting out of %s", elem.Name.Local)
 
-	if p.parseRows() && p.currentSpace.IsExact(paths.Row) {
-		p.handleRowEnd()
+	if p.Rows != nil && p.currentSpace.IsExact(paths.Row) {
+		return p.handleRowEnd()
 	}
 
-	p.currentSpace = p.currentSpace[0 : len(p.currentSpace)-1]
+	return nil
 }
 
-func (p *Parser) handleCharData(elem xml.CharData) error {
+func (p *parser) handleCharData(elem xml.CharData) error {
 	log.Printf("Got data: %s", string(elem))
 
 	if p.currentSpace.IsExact(paths.ErrorCode) {
@@ -113,7 +124,7 @@ func (p *Parser) handleCharData(elem xml.CharData) error {
 	return nil
 }
 
-func (p *Parser) handleErrorCode(elem xml.CharData) error {
+func (p *parser) handleErrorCode(elem xml.CharData) error {
 	s := string(elem)
 	val, err := strconv.Atoi(s)
 
@@ -122,20 +133,18 @@ func (p *Parser) handleErrorCode(elem xml.CharData) error {
 	}
 
 	if p.ErrorCodes != nil {
-		p.ErrorCodes <- val
-	} else {
-		log.Println("ErrorCodes channel is nil")
+		select {
+		case <-p.ctx.Done():
+			return context.Canceled
+		case p.ErrorCodes <- val:
+		}
+
 	}
 
 	return nil
 }
 
-func (p *Parser) handleProduct(elem xml.StartElement) error {
-	if p.Products == nil {
-		log.Println("Products channel is nil")
-		return nil
-	}
-
+func (p *parser) handleProduct(elem xml.StartElement) error {
 	out := fmpxmlresult.Product{}
 
 	attrMap := map[string]*string{
@@ -149,17 +158,15 @@ func (p *Parser) handleProduct(elem xml.StartElement) error {
 			*target = attr.Value
 		}
 	}
-
-	p.Products <- out
-	return nil
-}
-
-func (p *Parser) handleDatabase(elem xml.StartElement) error {
-	if p.Databases == nil {
-		log.Println("Databases channel is nil")
+	select {
+	case <-p.ctx.Done():
+		return context.Canceled
+	case p.Products <- out:
 		return nil
 	}
+}
 
+func (p *parser) handleDatabase(elem xml.StartElement) error {
 	out := fmpxmlresult.Database{}
 
 	attrMap := map[string]*string{
@@ -184,16 +191,15 @@ func (p *Parser) handleDatabase(elem xml.StartElement) error {
 		}
 	}
 
-	p.Databases <- out
-	return nil
-}
-
-func (p *Parser) handleField(elem xml.StartElement) error {
-	if p.Fields == nil {
-		log.Println("Fields channel is nil")
+	select {
+	case <-p.ctx.Done():
+		return context.Canceled
+	case p.Databases <- out:
 		return nil
 	}
+}
 
+func (p *parser) handleField(elem xml.StartElement) error {
 	out := fmpxmlresult.Field{}
 
 	for _, attr := range elem.Attr {
@@ -220,11 +226,15 @@ func (p *Parser) handleField(elem xml.StartElement) error {
 		}
 	}
 
-	p.Fields <- out
-	return nil
+	select {
+	case <-p.ctx.Done():
+		return context.Canceled
+	case p.Fields <- out:
+		return nil
+	}
 }
 
-func (p *Parser) handleRowStart(elem xml.StartElement) error {
+func (p *parser) handleRowStart(elem xml.StartElement) error {
 	p.workingRow = fmpxmlresult.NormalizedRow{}
 
 	for _, attr := range elem.Attr {
@@ -240,18 +250,32 @@ func (p *Parser) handleRowStart(elem xml.StartElement) error {
 	return nil
 }
 
-func (p *Parser) handleColStart(elem xml.StartElement) {
+func (p *parser) handleColStart(elem xml.StartElement) {
 	// Create a new set of data elements for this row
 	p.workingRow.Columns = append(p.workingRow.Columns, []string{})
 }
 
 // Once we've collected all the columns in a row, emit it
-func (p *Parser) handleRowEnd() {
-	p.Rows <- p.workingRow
+func (p *parser) handleRowEnd() error {
+	select {
+	case <-p.ctx.Done():
+		return context.Canceled
+	case p.Rows <- p.workingRow:
+		return nil
+	}
+
 }
 
-func (p *Parser) parseRows() bool {
+func (p *parser) parseRows() bool {
 	return p.Rows != nil
+}
+
+func (p *parser) pushSpace(elem xml.StartElement) {
+	p.currentSpace = append(p.currentSpace, elem.Name)
+}
+
+func (p *parser) popSpace() {
+	p.currentSpace = p.currentSpace[0 : len(p.currentSpace)-1]
 }
 
 func yesNo(s string) (bool, error) {
