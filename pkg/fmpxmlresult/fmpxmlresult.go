@@ -47,6 +47,12 @@ type Row struct {
 	Cols     []Col  `json:"cols"`
 }
 
+type NormalizedRow struct {
+	ModID    string     `json:"modID"`
+	RecordID string     `json:"recordID"`
+	Columns  [][]string `json:"cols"` // 2d array, since each column has multiple data elements
+}
+
 // Record is the normalized output for easy JSON work. The value may be a scalar or an array, based on the field repeat
 type Record map[string]json.RawMessage
 
