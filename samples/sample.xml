@@ -9,6 +9,7 @@
 		<FIELD EMPTYOK="NO" MAXREPEAT="1" NAME="First Name" TYPE="TEXT"/>
 		<FIELD EMPTYOK="NO" MAXREPEAT="1" NAME="Last Name" TYPE="TEXT"/>
 		<FIELD EMPTYOK="YES" MAXREPEAT="1" NAME="Department" TYPE="TEXT"/>
+		<FIELD EMPTYOK="YES" MAXREPEAT="10" NAME="Email" TYPE="TEXT"/>
 	</METADATA>
 	<RESULTSET FOUND="2">
 		<ROW MODID="47" RECORDID="34"> 
@@ -21,6 +22,10 @@
 			<COL>
 				<DATA>Engineering</DATA>
 			</COL>
+			<COL>
+				<DATA>jsmith@example.org</DATA>
+				<DATA>joe.smith@example.org</DATA>
+			</COL>
 		</ROW>
 		<ROW MODID="89" RECORDID="78">
 			<COL> 
@@ -31,6 +36,10 @@
 			</COL>
 			<COL>
 				<DATA>Marketing</DATA>
+			</COL>
+			<COL>
+				<DATA>joness@example.org</DATA>
+				<DATA>susanjones@example.org</DATA>
 			</COL>
 		</ROW>
 	</RESULTSET>
