@@ -1,14 +1,13 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"flag"
 	"io"
 	"log"
 	"os"
 
-	"github.com/hovercross/fmpxml-to-json/pkg/stream"
-	"github.com/hovercross/fmpxml-to-json/pkg/xmlreader"
+	"github.com/hovercross/fmpxml-to-json/pkg/mapper"
 )
 
 func main() {
@@ -38,33 +37,6 @@ func main() {
 		}
 	}
 
-	stream.Parse(reader, nil)
-
-	parsed, parseErr := xmlreader.ReadXML(reader)
-
-	closeOrFatal(reader)
-
-	if parseErr != nil {
-		log.Fatalf("Unable to read input XML: %v", parseErr)
-	}
-
-	// These must be populated before calling PopulateRecords
-	parsed.RecordIDField = recordIDField
-	parsed.ModIDField = modIDField
-
-	if err := parsed.PopulateRecords(); err != nil {
-		log.Fatalf("Unable to convert record format: %v", err)
-	}
-
-	if !full {
-		parsed.ResultSet = nil
-		parsed.Metadata = nil
-	}
-
-	if sanitizeNumbers {
-		parsed.SanitizeNumbers = true
-	}
-
 	var writer io.WriteCloser
 
 	if outFileName == "-" {
@@ -79,16 +51,9 @@ func main() {
 		}
 	}
 
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "  ")
-
-	if err := encoder.Encode(parsed); err != nil {
-		closeOrFatal(writer)
-
-		log.Fatalf("Could not write JSON data: %v", err)
+	if err := mapper.Map(context.Background(), reader, writer); err != nil {
+		log.Fatalf("Error: %v", err)
 	}
-
-	closeOrFatal(writer)
 }
 
 func closeOrFatal(f io.Closer) {

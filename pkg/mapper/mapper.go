@@ -2,165 +2,161 @@ package mapper
 
 import (
 	"context"
-	"errors"
 	"io"
 	"sync"
 
+	"github.com/francoispqt/gojay"
 	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream"
 	"golang.org/x/sync/errgroup"
 )
 
-type MappedRecord struct{}
+type output struct {
+	ErrorCode *int                   `json:"errorCode"`
+	Product   *fmpxmlresult.Product  `json:"product"`
+	Database  *fmpxmlresult.Database `json:"database"`
+	Fields    []fmpxmlresult.Field   `json:"fields"`
+	Records   RecordOutputChannel    `json:"records"`
+}
 
-var (
-	ErrMultipleErrorCodeRecordsFound = errors.New("Multiple error code records found")
-	ErrMultipleDatabaseRecordsFound  = errors.New("Multiple database records found")
-	ErrMultipleProductRecordsFound   = errors.New("Multiple product records found")
-)
+func Map(ctx context.Context, r io.Reader, w io.Writer) error {
+	// This is our big channel - the row handler in the mapper will write to it, and the JSON encoder in output will read from it
+	mappedRecords := make(chan MappedRecord)
 
-func Map(ctx context.Context, r io.Reader, output chan<- MappedRecord) error {
-	errGroup, ctx := errgroup.WithContext(ctx)
+	out := &output{
+		Records: mappedRecords,
+	}
 
+	// These are all the channels that get passed into the parser, and then read by their respective loop handlers
 	errorCodeNodes := make(chan int)
 	productNodes := make(chan fmpxmlresult.Product)
 	fieldNodes := make(chan fmpxmlresult.Field)
 	databaseNodes := make(chan fmpxmlresult.Database)
 	rowNodes := make(chan fmpxmlresult.NormalizedRow)
+	metadataEndSignals := make(chan struct{})
+	resultSetEndSignals := make(chan struct{})
 
+	// This will get closed when we have all our requisite information, such as the fields, and can start to actually handle rows
+	rowProcessTrip := make(chan struct{})
+
+	// The mapper is what will do all the obnoxious row translations, reading data from the parser
 	m := &Mapper{
-		errorCodes: errorCodeNodes,
-		products:   productNodes,
-		fields:     fieldNodes,
-		databases:  databaseNodes,
-		rows:       rowNodes,
+		incomingErrorCodes:          errorCodeNodes,
+		incomingProducts:            productNodes,
+		incomingFields:              fieldNodes,
+		incomingDatabases:           databaseNodes,
+		incomingRows:                rowNodes,
+		incomingMetdataEndSignals:   metadataEndSignals,
+		incomingResultSetEndSignals: resultSetEndSignals,
 
-		output: output,
+		mappedRecords: mappedRecords,
+
+		result:              out,
+		startProcessingRows: rowProcessTrip,
 	}
 
+	// The parser will be emitting lightly normalized rows, metadata, and the like, but does not correlate fields to record columns
 	parser := &stream.Parser{
-		Reader:     r,
-		ErrorCodes: errorCodeNodes,
-		Products:   productNodes,
-		Fields:     fieldNodes,
-		Databases:  databaseNodes,
-		Rows:       rowNodes,
+		Reader:       r,
+		ErrorCodes:   errorCodeNodes,
+		Products:     productNodes,
+		Fields:       fieldNodes,
+		Databases:    databaseNodes,
+		Rows:         rowNodes,
+		MetadataEnd:  metadataEndSignals,
+		ResultSetEnd: resultSetEndSignals,
 	}
 
-	// Start parsing in the background, and close out all the channels after parse
+	errGroup, ctx := errgroup.WithContext(ctx)
+
+	// Start parsing in the background, and close out all the channels after parse so that our error group can exit
 	errGroup.Go(func() error {
+		// Only the parser writes to these channels, so once the parser has finished close them out
+		// to let all the remaining readers of those channels finish
 		defer func() {
 			close(errorCodeNodes)
 			close(productNodes)
 			close(fieldNodes)
 			close(databaseNodes)
 			close(rowNodes)
+			close(metadataEndSignals)
+			close(resultSetEndSignals)
+
+			close(mappedRecords)
 		}()
 
-		return parser.Parse(ctx)
+		err := parser.Parse(ctx)
+
+		return err
 	})
 
-	// Start reading everything in the background
-	errGroup.Go(m.readErrorCodes)
-	errGroup.Go(m.readProducts)
-	errGroup.Go(m.readFields)
-	errGroup.Go(m.readDatabases)
-	errGroup.Go(m.readRows)
+	// Start reading everything in the background. These all close on their respective channel closure,
+	// which will be done after the parser finishes
+	errGroup.Go(m.handleIncomingErrorCodes)
+	errGroup.Go(m.handleIncomingProducts)
+	errGroup.Go(m.handleIncomingFields)
+	errGroup.Go(m.handleIncomingDatabases)
+	errGroup.Go(m.handleIncomingRows)
+	errGroup.Go(m.handleIncomingMetadataEndSignals)
+	errGroup.Go(m.handleIncomingResultSetEndSignals)
 
+	enc := gojay.NewEncoder(w)
+	errGroup.Go(func() error {
+		return enc.Encode(out)
+	})
+
+	// Orchestration note: Once the parser finishes (or has an error), all the channels will close,
+	// which will cause all these subtasks to exit, and therefore the error group to finish
 	return errGroup.Wait()
+}
 
+type encodingFunction struct {
+	key   string
+	proxy encoderProxy
 }
 
 // A mapper translates the parsed rows into concrete types`
 type Mapper struct {
-	ErrorCode int
-	Product   fmpxmlresult.Product
-	Database  fmpxmlresult.Database
-	Fields    []fmpxmlresult.Field
-
 	parser stream.Parser
 
-	output              chan<- MappedRecord
+	result        *output
+	mappedRecords chan<- MappedRecord // this is the incoming half of result.Records
+
 	rowIDField          string
 	modificationIDField string
 
-	m sync.RWMutex
+	m             sync.RWMutex
+	startEncoding sync.Once // Will be used to start the encoding process once we have all the non-row data
 
-	errorCodes <-chan int
-	products   <-chan fmpxmlresult.Product
-	fields     <-chan fmpxmlresult.Field
-	databases  <-chan fmpxmlresult.Database
-	rows       <-chan fmpxmlresult.NormalizedRow
+	incomingErrorCodes          <-chan int
+	incomingProducts            <-chan fmpxmlresult.Product
+	incomingFields              <-chan fmpxmlresult.Field
+	incomingDatabases           <-chan fmpxmlresult.Database
+	incomingMetdataEndSignals   <-chan struct{}
+	incomingResultSetEndSignals <-chan struct{}
+
+	incomingRows <-chan fmpxmlresult.NormalizedRow
+
+	gotMetadata     bool
+	gotResultSetEnd bool
+
+	startProcessingRows chan struct{} // Once we've gotten all the secondary inputs, we'll trip this flag and allow rows to be processed. Until then, incoming rows will be collected.
+
+	encodingFunctions []encodingFunction
 }
 
-func (m *Mapper) readErrorCodes() error {
-	found := false
-
-	for errorCode := range m.errorCodes {
-		if found {
-			return ErrMultipleErrorCodeRecordsFound
-		}
-
-		m.ErrorCode = errorCode
-		found = true
+// Trip the reader if the reader should have all the data that it needs to start reading rows
+func (m *Mapper) tripReads() {
+	if m.result.Database == nil {
+		return
 	}
 
-	return nil
-}
-
-func (m *Mapper) readProducts() error {
-	found := false
-	for product := range m.products {
-		if found {
-			return ErrMultipleProductRecordsFound
-		}
-
-		m.Product = product
-		found = true
+	// Proxy for the fields, since they get continuously appended until the metadata end
+	if !m.gotMetadata {
+		return
 	}
 
-	return nil
-}
-
-func (m *Mapper) readDatabases() error {
-	found := false
-
-	for database := range m.databases {
-		if found {
-			return ErrMultipleDatabaseRecordsFound
-		}
-
-		m.Database = database
-		found = true
-	}
-
-	return nil
-}
-
-func (m *Mapper) readFields() error {
-	for field := range m.fields {
-		m.m.Lock()
-		m.Fields = append(m.Fields, field)
-		defer m.m.Unlock()
-	}
-
-	return nil
-}
-
-func (m *Mapper) readRows() error {
-	for row := range m.rows {
-		if err := m.readRow(row); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *Mapper) readRow(row fmpxmlresult.NormalizedRow) error {
-	m.m.RLock()
-	defer m.m.RUnlock()
-
-	// Normalize and do something
-	return nil
+	m.startEncoding.Do(func() {
+		close(m.startProcessingRows)
+	})
 }

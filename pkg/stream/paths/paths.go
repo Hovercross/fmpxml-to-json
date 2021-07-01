@@ -12,4 +12,6 @@ var (
 	Row       = makeSpaceChain(constants.SPACE, constants.FMPXMLRESULT, constants.RESULTSET, constants.ROW)
 	Col       = makeSpaceChain(constants.SPACE, constants.FMPXMLRESULT, constants.RESULTSET, constants.ROW, constants.COL)
 	Data      = makeSpaceChain(constants.SPACE, constants.FMPXMLRESULT, constants.RESULTSET, constants.ROW, constants.COL, constants.DATA)
+	Metadata  = makeSpaceChain(constants.SPACE, constants.FMPXMLRESULT, constants.METADATA)
+	ResultSet = makeSpaceChain(constants.SPACE, constants.FMPXMLRESULT, constants.RESULTSET)
 )

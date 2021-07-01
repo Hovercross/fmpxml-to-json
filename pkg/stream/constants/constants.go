@@ -24,3 +24,8 @@ const DATA = "DATA"
 const EMPTYOK = "EMPTYOK"
 const MAXREPEAT = "MAXREPEAT"
 const TYPE = "TYPE"
+
+const NUMBER = "NUMBER"
+const DATE = "DATE"
+const TIME = "TIME"
+const TIMESTAMP = "TIMESTAMP"
