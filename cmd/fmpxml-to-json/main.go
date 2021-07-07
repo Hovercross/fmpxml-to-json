@@ -12,14 +12,19 @@ import (
 
 func main() {
 	var inFileName, outFileName, recordIDField, modIDField string
-	var full, sanitizeNumbers bool
+
+	var stream bool
+	var streamPrefix, streamSuffix string // These are only used for JSON Lines
+	var streamLengthPrefixSize int
 
 	flag.StringVar(&inFileName, "input", "-", "File to read from, or \"-\" for STDIN")
 	flag.StringVar(&outFileName, "output", "-", "File to write to, or \"-\" for STDOUT")
 	flag.StringVar(&recordIDField, "recordID", "", "Field name to write the record ID value to")
 	flag.StringVar(&modIDField, "modID", "", "Field name to write the modification ID value to")
-	flag.BoolVar(&full, "full", false, "Keep all the original data")
-	flag.BoolVar(&sanitizeNumbers, "reformatNumbers", false, "Reformat numbers for compatibility")
+	flag.BoolVar(&stream, "json-stream", false, "Write a stream of JSON data instead of a single object")
+	flag.StringVar(&streamPrefix, "json-stream-prefix", "", "Prefix to write before every entry in the JSON concatinated format")
+	flag.StringVar(&streamSuffix, "json-stream-suffix", "\n", "Suffix to write before every entry in the JSON concatinated format")
+	flag.IntVar(&streamLengthPrefixSize, "json-stream-prefix-size", -1, "Write the size of each JSON object before the JSON object itself. A value of 0 is an unlimited with, any other positive number indicates the fixed width for the JSON object size")
 
 	flag.Parse()
 
@@ -51,8 +56,22 @@ func main() {
 		}
 	}
 
-	if err := mapper.Map(context.Background(), reader, writer); err != nil {
-		log.Fatalf("Error: %v", err)
+	ctx := context.Background()
+
+	// Default to the JSON format
+	var f func() error = func() error {
+		return mapper.WriteJSON(ctx, reader, writer, recordIDField, modIDField)
+	}
+
+	if stream {
+		f = func() error {
+			return mapper.WriteJSONLines(ctx, reader, writer, recordIDField, modIDField, streamPrefix, streamSuffix, streamLengthPrefixSize)
+		}
+
+	}
+
+	if err := f(); err != nil {
+		log.Fatal(err)
 	}
 }
 

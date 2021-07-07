@@ -53,11 +53,13 @@ type NormalizedRow struct {
 	Columns  [][]string `json:"cols"` // 2d array, since each column has multiple data elements
 }
 
+type ErrorCode int
+
 // Record is the normalized output for easy JSON work. The value may be a scalar or an array, based on the field repeat
 type Record map[string]json.RawMessage
 
 type FMPXMLResult struct {
-	ErrorCode int        `json:"errorCode"`
+	ErrorCode ErrorCode  `json:"errorCode"`
 	Product   *Product   `json:"product,omitempty"`
 	Metadata  *Metadata  `json:"metadata,omitempty"`
 	Database  *Database  `json:"database,omitempty"`

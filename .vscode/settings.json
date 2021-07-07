@@ -7,9 +7,11 @@
         "fmpxmlresult",
         "francoispqt",
         "gojay",
+        "jsonl",
         "modid",
         "recordid",
-        "timeconv"
+        "timeconv",
+        "vals"
     ],
     "cSpell.ignoreWords": [
         "mdyyyy"

@@ -1,10 +1,5 @@
 {
   "errorCode": 0,
-  "product": {
-    "build": "5/23/2002",
-    "name": "FileMaker Pro",
-    "version": "7.0"
-  },
   "database": {
     "dateFormat": "MM/dd/yy",
     "timeFormat": "hh:mm:ss",
@@ -12,20 +7,59 @@
     "name": "Employees.fmp12",
     "records": 23
   },
-  "records": [
+  "fields": [
     {
-      "Department": "Engineering",
-      "First Name": "Joe",
-      "Last Name": "Smith",
-      "modificationID": "47",
-      "recordID": "34"
+      "emptyOK": false,
+      "maxRepeat": 1,
+      "name": "First Name",
+      "type": "TEXT"
     },
     {
-      "Department": "Marketing",
+      "emptyOK": false,
+      "maxRepeat": 1,
+      "name": "Last Name",
+      "type": "TEXT"
+    },
+    {
+      "emptyOK": true,
+      "maxRepeat": 1,
+      "name": "Department",
+      "type": "TEXT"
+    },
+    {
+      "emptyOK": true,
+      "maxRepeat": 10,
+      "name": "Email",
+      "type": "TEXT"
+    }
+  ],
+  "product": {
+    "build": "5/23/2002",
+    "name": "FileMaker Pro",
+    "version": "7.0"
+  },
+  "records": [
+    {
+      "recordID": "34",
+      "modificationID": "47",
+      "First Name": "Joe",
+      "Last Name": "Smith",
+      "Department": "Engineering",
+      "Email": [
+        "jsmith@example.org",
+        "joe.smith@example.org"
+      ]
+    },
+    {
+      "recordID": "78",
+      "modificationID": "89",
       "First Name": "Susan",
       "Last Name": "Jones",
-      "modificationID": "89",
-      "recordID": "78"
+      "Department": "Marketing",
+      "Email": [
+        "joness@example.org",
+        "susanjones@example.org"
+      ]
     }
   ]
 }

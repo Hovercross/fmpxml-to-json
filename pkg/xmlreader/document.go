@@ -18,7 +18,7 @@ type document struct {
 
 func (d document) Normalize() (*fmpxmlresult.FMPXMLResult, error) {
 	out := fmpxmlresult.FMPXMLResult{
-		ErrorCode: d.ErrorCode,
+		ErrorCode: fmpxmlresult.ErrorCode(d.ErrorCode),
 	}
 
 	var err error

@@ -1,7 +1,9 @@
 package mapper
 
 import (
+	"context"
 	"errors"
+	"log"
 
 	"github.com/francoispqt/gojay"
 	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
@@ -16,53 +18,53 @@ var (
 	ErrFieldCountMismatch            = errors.New("Field count mismatch")
 )
 
-func (m *Mapper) handleIncomingErrorCode(data int) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-
-	if m.result.ErrorCode != nil {
+func (m *mapper) handleIncomingErrorCode(ctx context.Context, data fmpxmlresult.ErrorCode) error {
+	if m.errorCode != nil {
 		return ErrMultipleErrorCodeRecordsFound
 	}
 
-	m.result.ErrorCode = &data
-	return nil
+	m.errorCode = &data
+	return m.flushRows(ctx)
 }
 
-func (m *Mapper) handleIncomingProduct(data fmpxmlresult.Product) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-
-	if m.result.Product != nil {
+func (m *mapper) handleIncomingProduct(ctx context.Context, data fmpxmlresult.Product) error {
+	if m.product != nil {
 		return ErrMultipleProductRecordsFound
 	}
 
-	m.result.Product = &data
-	return nil
+	m.product = &data
+	return m.flushRows(ctx)
 }
 
-func (m *Mapper) handleIncomingDatabase(data fmpxmlresult.Database) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-
-	if m.result.Database != nil {
+func (m *mapper) handleIncomingDatabase(ctx context.Context, data fmpxmlresult.Database) error {
+	if m.database != nil {
 		return ErrMultipleDatabaseRecordsFound
 	}
 
-	m.result.Database = &data
-	m.tripReads()
-	return nil
+	m.database = &data
+	if err := m.flushFields(ctx); err != nil {
+		return err
+	}
+
+	return m.flushRows(ctx)
 }
 
 // Here are all the handlers for the individual incoming elements
-func (m *Mapper) handleIncomingField(field fmpxmlresult.Field) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-
-	if m.gotMetadata {
+func (m *mapper) handleIncomingField(ctx context.Context, field fmpxmlresult.Field) error {
+	if m.endedMetadata {
 		return ErrMultipleMetadata
 	}
 
-	m.result.Fields = append(m.result.Fields, field)
+	if !m.readyForFields() {
+		m.pendingFields = append(m.pendingFields, field)
+		return nil
+	}
+
+	if err := m.flushFields(ctx); err != nil {
+		return err
+	}
+
+	m.fields = append(m.fields, field)
 
 	encoder := getEncoder(field)
 	joinedData := encodingFunction{
@@ -71,13 +73,18 @@ func (m *Mapper) handleIncomingField(field fmpxmlresult.Field) error {
 	}
 
 	m.encodingFunctions = append(m.encodingFunctions, joinedData)
-
-	return nil
+	return m.flushRows(ctx)
 }
 
-func (m *Mapper) handleIncomingRow(row fmpxmlresult.NormalizedRow) error {
-	m.m.RLock()
-	defer m.m.RUnlock()
+func (m *mapper) handleIncomingRow(ctx context.Context, row fmpxmlresult.NormalizedRow) error {
+	if m.RowHandler == nil {
+		return nil
+	}
+
+	if !m.readyForRows() {
+		m.pendingRows = append(m.pendingRows, row)
+		log.Printf("Rows not ready for processing, collecting incoming row")
+	}
 
 	out := MappedRecord{}
 
@@ -87,28 +94,28 @@ func (m *Mapper) handleIncomingRow(row fmpxmlresult.NormalizedRow) error {
 
 	cap := len(row.Columns)
 
-	if m.rowIDField != "" {
+	if m.RowIDField != "" {
 		cap++
 	}
 
-	if m.modificationIDField != "" {
+	if m.ModificationIDField != "" {
 		cap++
 	}
 
 	// Pre-compute the capacity to be nicer to the garbage collector
 	out.encoders = make([]encoder, 0, cap)
 
-	if m.rowIDField != "" {
+	if m.RowIDField != "" {
 		f := func(enc *gojay.Encoder) {
-			enc.StringKey(m.rowIDField, row.RecordID)
+			enc.StringKey(m.RowIDField, row.RecordID)
 		}
 
 		out.encoders = append(out.encoders, f)
 	}
 
-	if m.modificationIDField != "" {
+	if m.ModificationIDField != "" {
 		f := func(enc *gojay.Encoder) {
-			enc.StringKey(m.modificationIDField, row.ModID)
+			enc.StringKey(m.ModificationIDField, row.ModID)
 		}
 
 		out.encoders = append(out.encoders, f)
@@ -126,32 +133,75 @@ func (m *Mapper) handleIncomingRow(row fmpxmlresult.NormalizedRow) error {
 		out.encoders = append(out.encoders, encoder)
 	}
 
-	m.mappedRecords <- out
-	return nil
+	return m.RowHandler(ctx, out)
 }
 
-func (m *Mapper) handleIncomingMetadataEndSignal() error {
-	m.m.Lock()
-	defer m.m.Unlock()
+func (m *mapper) handleIncomingMetadataEndSignal(ctx context.Context) error {
 
-	if m.gotMetadata {
+	if m.endedMetadata {
 		return ErrMultipleMetadata
 	}
 
-	m.gotMetadata = true
-	m.tripReads()
-
-	return nil
+	m.endedMetadata = true
+	return m.flushRows(ctx)
 }
 
-func (m *Mapper) handleIncomingResultSetEndSignal() error {
-	m.m.Lock()
-	defer m.m.Unlock()
-
-	if m.gotResultSetEnd {
+func (m *mapper) handleIncomingResultSetEndSignal(ctx context.Context) error {
+	if m.endedResultSet {
 		return ErrMultipleResultSetEnds
 	}
 
-	m.gotResultSetEnd = true
+	m.endedResultSet = true
+	return m.flushRows(ctx)
+}
+
+func (m *mapper) readyForRows() bool {
+	if !m.readyForFields() {
+		return false
+	}
+
+	if !m.endedMetadata {
+		return false
+	}
+
+	return true
+}
+
+func (m *mapper) readyForFields() bool {
+	// database is required for date/time parsing
+	if m.database == nil {
+		return false
+	}
+
+	return true
+}
+
+func (m *mapper) flushRows(ctx context.Context) error {
+	if !m.readyForRows() {
+		return nil
+	}
+
+	for _, row := range m.pendingRows {
+		if err := m.handleIncomingRow(ctx, row); err != nil {
+			return err
+		}
+	}
+
+	m.pendingRows = nil
+	return nil
+}
+
+func (m *mapper) flushFields(ctx context.Context) error {
+	if !m.readyForFields() {
+		return nil
+	}
+
+	for _, field := range m.pendingFields {
+		if err := m.handleIncomingField(ctx, field); err != nil {
+			return err
+		}
+	}
+
+	m.pendingFields = nil
 	return nil
 }

@@ -23,17 +23,6 @@ type MappedRecord struct {
 	encoders []encoder
 }
 
-type RecordOutputChannel <-chan MappedRecord
-
-func (roc RecordOutputChannel) MarshalStream(enc *gojay.StreamEncoder) {
-	select {
-	case <-enc.Done():
-		return
-	case o := <-roc:
-		enc.Object(o)
-	}
-}
-
 func (mr MappedRecord) MarshalJSONObject(enc *gojay.Encoder) {
 	for _, encoder := range mr.encoders {
 		encoder(enc)
@@ -42,6 +31,10 @@ func (mr MappedRecord) MarshalJSONObject(enc *gojay.Encoder) {
 
 func (mr MappedRecord) IsNil() bool {
 	return false
+}
+
+func (mr MappedRecord) MarshalJSON() ([]byte, error) {
+	return gojay.MarshalJSONObject(mr)
 }
 
 func stringSlice(key string, vals []string) (encoder, error) {

@@ -17,13 +17,13 @@ import (
 type Parser struct {
 	Reader io.Reader
 
-	ErrorCodes   chan<- int
-	Products     chan<- fmpxmlresult.Product
-	Fields       chan<- fmpxmlresult.Field
-	Databases    chan<- fmpxmlresult.Database
-	Rows         chan<- fmpxmlresult.NormalizedRow
-	MetadataEnd  chan<- struct{} // Signaled whenever we end a metadata section
-	ResultSetEnd chan<- struct{} // Signaled whenever we end a result set
+	ErrorCodeHandler    func(context.Context, fmpxmlresult.ErrorCode) error
+	ProductHandler      func(context.Context, fmpxmlresult.Product) error
+	FieldHandler        func(context.Context, fmpxmlresult.Field) error
+	DatabaseHandler     func(context.Context, fmpxmlresult.Database) error
+	RowHandler          func(context.Context, fmpxmlresult.NormalizedRow) error
+	MetadataEndHandler  func(context.Context) error
+	ResultSetEndHandler func(context.Context) error
 
 	currentSpace paths.SpaceChain
 	workingRow   fmpxmlresult.NormalizedRow
@@ -33,13 +33,6 @@ func (p *Parser) Parse(ctx context.Context) error {
 	decoder := xml.NewDecoder(p.Reader)
 
 	for {
-		// Check for cancelation before each token read
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		default:
-		}
-
 		token, err := decoder.Token()
 
 		if err == io.EOF {
@@ -50,7 +43,7 @@ func (p *Parser) Parse(ctx context.Context) error {
 			return err
 		}
 
-		// Token may be one of StartElement, EndElement, Chardata, Commend, ProcInst, or Directive
+		// Token may be one of StartElement, EndElement, Chardata, Command, ProcInst, or Directive
 
 		switch elem := token.(type) {
 		case xml.StartElement:
@@ -71,28 +64,30 @@ func (p *Parser) Parse(ctx context.Context) error {
 func (p *Parser) handleStart(ctx context.Context, elem xml.StartElement) error {
 	p.pushSpace(ctx, elem)
 
-	if p.Products != nil && p.currentSpace.IsExact(paths.Product) {
+	log.Printf("Entering into %s", elem.Name.Local)
+
+	if p.currentSpace.IsExact(paths.Product) {
 		return p.handleProduct(ctx, elem)
 	}
 
-	if p.Databases != nil && p.currentSpace.IsExact(paths.Database) {
+	if p.currentSpace.IsExact(paths.Database) {
 		return p.handleDatabase(ctx, elem)
 	}
 
-	if p.Fields != nil && p.currentSpace.IsExact(paths.Field) {
+	if p.currentSpace.IsExact(paths.Field) {
 		return p.handleField(ctx, elem)
 	}
 
-	if p.Rows != nil && p.currentSpace.IsExact(paths.Row) {
+	if p.currentSpace.IsExact(paths.Row) {
 		return p.handleRowStart(ctx, elem)
 	}
 
-	if p.Rows != nil && p.currentSpace.IsExact(paths.Col) {
-		p.handleColStart(ctx, elem)
-		return nil
+	if p.currentSpace.IsExact(paths.Col) {
+		return p.handleColStart(ctx, elem)
 	}
 
-	log.Printf("Entering into %s", elem.Name.Local)
+	log.Printf("Element was unhandled")
+
 	return nil
 }
 
@@ -101,17 +96,19 @@ func (p *Parser) handleEnd(ctx context.Context, elem xml.EndElement) error {
 
 	log.Printf("Exiting out of %s", elem.Name.Local)
 
-	if p.Rows != nil && p.currentSpace.IsExact(paths.Row) {
+	if p.currentSpace.IsExact(paths.Row) {
 		return p.handleRowEnd(ctx)
 	}
 
-	if p.MetadataEnd != nil && p.currentSpace.IsExact(paths.Metadata) {
-		p.handleMetadataEnd(ctx)
+	if p.currentSpace.IsExact(paths.Metadata) {
+		return p.handleMetadataEnd(ctx)
 	}
 
-	if p.ResultSetEnd != nil && p.currentSpace.IsExact(paths.ResultSet) {
-		p.handleResultSetEnd(ctx)
+	if p.currentSpace.IsExact(paths.ResultSet) {
+		return p.handleResultSetEnd(ctx)
 	}
+
+	log.Printf("Element was unhandled")
 
 	return nil
 }
@@ -123,7 +120,7 @@ func (p *Parser) handleCharData(ctx context.Context, elem xml.CharData) error {
 		return p.handleErrorCode(ctx, elem)
 	}
 
-	if p.Rows != nil && p.currentSpace.IsExact(paths.Data) {
+	if p.RowHandler != nil && p.currentSpace.IsExact(paths.Data) {
 		index := len(p.workingRow.Columns) - 1
 		workingData := p.workingRow.Columns[index]
 		workingData = append(workingData, string(elem))
@@ -134,6 +131,10 @@ func (p *Parser) handleCharData(ctx context.Context, elem xml.CharData) error {
 }
 
 func (p *Parser) handleErrorCode(ctx context.Context, elem xml.CharData) error {
+	if p.ErrorCodeHandler == nil {
+		return nil
+	}
+
 	s := string(elem)
 	val, err := strconv.Atoi(s)
 
@@ -141,19 +142,14 @@ func (p *Parser) handleErrorCode(ctx context.Context, elem xml.CharData) error {
 		return fmt.Errorf("Unable to parse error code '%s' as integer: %v", s, err)
 	}
 
-	if p.ErrorCodes != nil {
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		case p.ErrorCodes <- val:
-		}
-
-	}
-
-	return nil
+	return p.ErrorCodeHandler(ctx, fmpxmlresult.ErrorCode(val))
 }
 
 func (p *Parser) handleProduct(ctx context.Context, elem xml.StartElement) error {
+	if p.ProductHandler == nil {
+		return nil
+	}
+
 	out := fmpxmlresult.Product{}
 
 	attrMap := map[string]*string{
@@ -167,15 +163,15 @@ func (p *Parser) handleProduct(ctx context.Context, elem xml.StartElement) error
 			*target = attr.Value
 		}
 	}
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case p.Products <- out:
-		return nil
-	}
+
+	return p.ProductHandler(ctx, out)
 }
 
 func (p *Parser) handleDatabase(ctx context.Context, elem xml.StartElement) error {
+	if p.DatabaseHandler == nil {
+		return nil
+	}
+
 	out := fmpxmlresult.Database{}
 
 	attrMap := map[string]*string{
@@ -200,15 +196,14 @@ func (p *Parser) handleDatabase(ctx context.Context, elem xml.StartElement) erro
 		}
 	}
 
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case p.Databases <- out:
-		return nil
-	}
+	return p.DatabaseHandler(ctx, out)
 }
 
 func (p *Parser) handleField(ctx context.Context, elem xml.StartElement) error {
+	if p.FieldHandler == nil {
+		return nil
+	}
+
 	out := fmpxmlresult.Field{}
 
 	for _, attr := range elem.Attr {
@@ -235,34 +230,30 @@ func (p *Parser) handleField(ctx context.Context, elem xml.StartElement) error {
 		}
 	}
 
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case p.Fields <- out:
-		return nil
-	}
+	return p.FieldHandler(ctx, out)
 }
 
 func (p *Parser) handleMetadataEnd(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case p.MetadataEnd <- struct{}{}:
+	if p.MetadataEndHandler == nil {
 		return nil
 	}
 
+	return p.MetadataEndHandler(ctx)
 }
 
 func (p *Parser) handleResultSetEnd(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case p.ResultSetEnd <- struct{}{}:
+	if p.ResultSetEndHandler == nil {
 		return nil
 	}
+
+	return p.ResultSetEndHandler(ctx)
 }
 
 func (p *Parser) handleRowStart(ctx context.Context, elem xml.StartElement) error {
+	if p.RowHandler == nil {
+		return nil
+	}
+
 	p.workingRow = fmpxmlresult.NormalizedRow{}
 
 	for _, attr := range elem.Attr {
@@ -278,19 +269,23 @@ func (p *Parser) handleRowStart(ctx context.Context, elem xml.StartElement) erro
 	return nil
 }
 
-func (p *Parser) handleColStart(ctx context.Context, elem xml.StartElement) {
+func (p *Parser) handleColStart(ctx context.Context, elem xml.StartElement) error {
+	if p.RowHandler == nil {
+		return nil
+	}
+
 	// Create a new set of data elements for this row
 	p.workingRow.Columns = append(p.workingRow.Columns, []string{})
+	return nil
 }
 
 // Once we've collected all the columns in a row, emit it
 func (p *Parser) handleRowEnd(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case p.Rows <- p.workingRow:
+	if p.RowHandler == nil {
 		return nil
 	}
+
+	return p.RowHandler(ctx, p.workingRow)
 }
 
 func (p *Parser) pushSpace(ctx context.Context, elem xml.StartElement) {
