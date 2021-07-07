@@ -1,4 +1,4 @@
-package mapper
+package jsonStreamWrite
 
 import (
 	"bufio"
@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/francoispqt/gojay"
+	"github.com/hovercross/fmpxml-to-json/pkg/stream/mapper"
 )
 
 var (
@@ -17,7 +18,7 @@ var (
 func WriteJSONLines(ctx context.Context, r io.Reader, w io.Writer, recordIDField, modIDField, prefix, suffix string, lengthSize int) error {
 	buf := bufio.NewWriter(w)
 
-	write := func(ctx context.Context, record MappedRecord) error {
+	write := func(ctx context.Context, record mapper.MappedRecord) error {
 		data, err := gojay.MarshalJSONObject(record)
 
 		if err != nil {
@@ -72,7 +73,7 @@ func WriteJSONLines(ctx context.Context, r io.Reader, w io.Writer, recordIDField
 		return nil
 	}
 
-	p := Mapper{
+	p := mapper.Mapper{
 		RowIDField:          recordIDField,
 		ModificationIDField: modIDField,
 		RowHandler:          write,

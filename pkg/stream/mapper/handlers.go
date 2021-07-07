@@ -66,7 +66,7 @@ func (m *mapper) handleIncomingField(ctx context.Context, field fmpxmlresult.Fie
 
 	m.fields = append(m.fields, field)
 
-	encoder := getEncoder(field)
+	encoder := m.getEncoder(field)
 	joinedData := encodingFunction{
 		key:   field.Name,
 		proxy: encoder,

@@ -7,7 +7,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/hovercross/fmpxml-to-json/pkg/mapper"
+	jsonWriter "github.com/hovercross/fmpxml-to-json/pkg/stream/writers/json"
+	jsonStreamWriter "github.com/hovercross/fmpxml-to-json/pkg/stream/writers/json-stream"
 )
 
 func main() {
@@ -60,12 +61,12 @@ func main() {
 
 	// Default to the JSON format
 	var f func() error = func() error {
-		return mapper.WriteJSON(ctx, reader, writer, recordIDField, modIDField)
+		return jsonWriter.WriteJSON(ctx, reader, writer, recordIDField, modIDField)
 	}
 
 	if stream {
 		f = func() error {
-			return mapper.WriteJSONLines(ctx, reader, writer, recordIDField, modIDField, streamPrefix, streamSuffix, streamLengthPrefixSize)
+			return jsonStreamWriter.WriteJSONLines(ctx, reader, writer, recordIDField, modIDField, streamPrefix, streamSuffix, streamLengthPrefixSize)
 		}
 
 	}

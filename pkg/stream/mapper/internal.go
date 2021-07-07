@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
-	"github.com/hovercross/fmpxml-to-json/pkg/stream"
+	"github.com/hovercross/fmpxml-to-json/pkg/stream/parser"
 )
 
 var (
@@ -51,7 +51,7 @@ func (m *mapper) Map(ctx context.Context, r io.Reader) (CollectedData, error) {
 	var out CollectedData
 
 	// The parser will be emitting lightly normalized rows, metadata, and the like, but does not correlate fields to record columns
-	parser := &stream.Parser{
+	parser := &parser.Parser{
 		Reader: r,
 
 		ErrorCodeHandler:    m.handleIncomingErrorCode,

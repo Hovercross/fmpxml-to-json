@@ -1,4 +1,4 @@
-package mapper
+package jsonWriter
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
+	"github.com/hovercross/fmpxml-to-json/pkg/stream/mapper"
 )
 
 type JSONResult struct {
@@ -13,18 +14,18 @@ type JSONResult struct {
 	Database  fmpxmlresult.Database  `json:"database"`
 	Fields    []fmpxmlresult.Field   `json:"fields"`
 	Product   fmpxmlresult.Product   `json:"product"`
-	Records   []MappedRecord         `json:"records"`
+	Records   []mapper.MappedRecord  `json:"records"`
 }
 
 func WriteJSON(ctx context.Context, r io.Reader, w io.Writer, recordIDField, modIDField string) error {
 	out := JSONResult{}
 
-	collect := func(ctx context.Context, row MappedRecord) error {
+	collect := func(ctx context.Context, row mapper.MappedRecord) error {
 		out.Records = append(out.Records, row)
 		return nil
 	}
 
-	p := Mapper{
+	p := mapper.Mapper{
 		RowIDField:          recordIDField,
 		ModificationIDField: modIDField,
 		RowHandler:          collect,

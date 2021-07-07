@@ -37,27 +37,6 @@ func (mr MappedRecord) MarshalJSON() ([]byte, error) {
 	return gojay.MarshalJSONObject(mr)
 }
 
-func stringSlice(key string, vals []string) (encoder, error) {
-	return func(enc *gojay.Encoder) {
-		enc.AddSliceStringKey(key, vals)
-	}, nil
-}
-
-func stringScalar(key string, vals []string) (encoder, error) {
-	if f := nullEncoder(key, vals); f != nil {
-		return f, nil
-	}
-
-	if err := scalarCheck(vals); err != nil {
-		return nil, err
-	}
-
-	scalar := vals[0]
-	return func(enc *gojay.Encoder) {
-		enc.AddStringKey(key, scalar)
-	}, nil
-}
-
 func nullEncoder(key string, vals []string) encoder {
 	if len(vals) == 0 {
 		return func(enc *gojay.Encoder) {
@@ -76,17 +55,39 @@ func scalarCheck(vals []string) error {
 	return nil
 }
 
-func getEncoder(field fmpxmlresult.Field) encoderProxy {
+func (m *mapper) getEncoder(field fmpxmlresult.Field) encoderProxy {
+	// TEXT, NUMBER, DATE, TIME, TIMESTAMP, and CONTAINER
 	if field.MaxRepeat == 1 {
 		switch field.Type {
 		case constants.NUMBER:
 			return getScalarNumberEncoder
+		case constants.DATE:
+			// TODO: Date scalar
+			return stringScalar
+		case constants.TIME:
+			// TODO: Time scalar
+			return stringScalar
+		case constants.TIMESTAMP:
+			// TODO: Timestamp encoder
 		default:
 			return stringScalar
 		}
 	}
 
+	// Slices
 	switch field.Type {
+	case constants.NUMBER:
+		// TODO
+		return stringSlice
+	case constants.DATE:
+		// TODO
+		return stringSlice
+	case constants.TIME:
+		// TODO
+		return stringSlice
+	case constants.TIMESTAMP:
+		// TODO
+		return stringSlice
 	default:
 		return stringSlice
 	}
@@ -136,4 +137,25 @@ func getScalarFloatEncoder(key, val string) encoder {
 	return func(enc *gojay.Encoder) {
 		enc.AddFloat64Key(key, v)
 	}
+}
+
+func stringScalar(key string, vals []string) (encoder, error) {
+	if f := nullEncoder(key, vals); f != nil {
+		return f, nil
+	}
+
+	if err := scalarCheck(vals); err != nil {
+		return nil, err
+	}
+
+	scalar := vals[0]
+	return func(enc *gojay.Encoder) {
+		enc.AddStringKey(key, scalar)
+	}, nil
+}
+
+func stringSlice(key string, vals []string) (encoder, error) {
+	return func(enc *gojay.Encoder) {
+		enc.AddSliceStringKey(key, vals)
+	}, nil
 }
