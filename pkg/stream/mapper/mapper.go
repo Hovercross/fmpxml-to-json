@@ -25,21 +25,21 @@ type Mapper struct {
 	DatabaseHandler  func(context.Context, parser.Database)
 }
 
-func (p Mapper) Map(ctx context.Context, r io.Reader) error {
-	m := p.getPrivate()
+func (m Mapper) Map(ctx context.Context, r io.Reader) error {
+	privateMapper := m.getPrivate()
 
-	return m.Map(ctx, r)
+	return privateMapper.Map(ctx, r)
 }
 
-func (p Mapper) getPrivate() *mapper {
+func (m Mapper) getPrivate() *mapper {
 	return &mapper{
-		RowIDField:          p.RowIDField,
-		ModificationIDField: p.ModificationIDField,
+		RowIDField:          m.RowIDField,
+		ModificationIDField: m.ModificationIDField,
 
-		RowHandler:       p.RowHandler,
-		ErrorCodeHandler: p.ErrorCodeHandler,
-		ProductHandler:   p.ProductHandler,
-		FieldHandler:     p.FieldHandler,
-		DatabaseHandler:  p.DatabaseHandler,
+		RowHandler:       m.RowHandler,
+		ErrorCodeHandler: m.ErrorCodeHandler,
+		ProductHandler:   m.ProductHandler,
+		FieldHandler:     m.FieldHandler,
+		DatabaseHandler:  m.DatabaseHandler,
 	}
 }
