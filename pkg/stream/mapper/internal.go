@@ -28,6 +28,10 @@ type mapper struct {
 	fields    []fmpxmlresult.Field
 	database  *fmpxmlresult.Database
 
+	dateLayout      string
+	timeLayout      string
+	timestampLayout string
+
 	pendingRows   []fmpxmlresult.NormalizedRow
 	pendingFields []fmpxmlresult.Field
 
