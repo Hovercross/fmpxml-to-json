@@ -35,6 +35,11 @@ func (p Mapper) getPrivate() *mapper {
 	return &mapper{
 		RowIDField:          p.RowIDField,
 		ModificationIDField: p.ModificationIDField,
-		RowHandler:          p.RowHandler,
+
+		RowHandler:       p.RowHandler,
+		ErrorCodeHandler: p.ErrorCodeHandler,
+		ProductHandler:   p.ProductHandler,
+		FieldHandler:     p.FieldHandler,
+		DatabaseHandler:  p.DatabaseHandler,
 	}
 }
