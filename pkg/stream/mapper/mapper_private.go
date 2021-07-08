@@ -38,11 +38,11 @@ type mapper struct {
 	rowIDField          string
 	modificationIDField string
 
-	rowHandler       func(context.Context, MappedRecord)
-	errorCodeHandler func(context.Context, parser.ErrorCode)
-	productHandler   func(context.Context, parser.Product)
-	fieldHandler     func(context.Context, parser.Field)
-	databaseHandler  func(context.Context, parser.Database)
+	rowHandler       func(context.Context, MappedRecord) error
+	errorCodeHandler func(context.Context, parser.ErrorCode) error
+	productHandler   func(context.Context, parser.Product) error
+	fieldHandler     func(context.Context, parser.Field) error
+	databaseHandler  func(context.Context, parser.Database) error
 }
 
 type encodingFunction struct {
@@ -80,13 +80,7 @@ func (m *mapper) execute(ctx context.Context, r io.Reader) error {
 		return err
 	}
 
-	// Flush any pending rows - should be a noop
-	if err := m.flushRows(ctx); err != nil {
-		return err
-	}
-
-	// This shouldn't happen if we got all the relevant field types
-	if !m.readyForRows() {
+	if len(m.pendingRows) > 0 {
 		return ErrNeverReady
 	}
 

@@ -17,27 +17,37 @@ type JSONResult struct {
 	Records   []mapper.MappedRecord `json:"records"`
 }
 
-func (jr *JSONResult) setDatabase(ctx context.Context, data parser.Database) {
+func (jr *JSONResult) setDatabase(ctx context.Context, data parser.Database) error {
 	jr.Database = data
+
+	return nil
 }
 
-func (jr *JSONResult) setErrorCode(ctx context.Context, data parser.ErrorCode) {
+func (jr *JSONResult) setErrorCode(ctx context.Context, data parser.ErrorCode) error {
 	jr.ErrorCode = data
+
+	return nil
 }
 
-func (jr *JSONResult) appendField(ctx context.Context, data parser.Field) {
+func (jr *JSONResult) appendField(ctx context.Context, data parser.Field) error {
 	jr.Fields = append(jr.Fields, data)
+
+	return nil
 }
 
-func (jr *JSONResult) setProduct(ctx context.Context, data parser.Product) {
+func (jr *JSONResult) setProduct(ctx context.Context, data parser.Product) error {
 	jr.Product = data
+
+	return nil
 }
 
 func WriteJSON(ctx context.Context, r io.Reader, w io.Writer, recordIDField, modIDField string) error {
 	out := JSONResult{}
 
-	collect := func(ctx context.Context, row mapper.MappedRecord) {
+	collect := func(ctx context.Context, row mapper.MappedRecord) error {
 		out.Records = append(out.Records, row)
+
+		return nil
 	}
 
 	p := mapper.Mapper{

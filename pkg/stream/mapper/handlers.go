@@ -26,11 +26,13 @@ func (m *mapper) handleIncomingErrorCode(ctx context.Context, data parser.ErrorC
 
 	m.gotErrorCode = true
 
-	if m.ErrorCodeHandler != nil {
-		m.ErrorCodeHandler(ctx, data)
+	if m.errorCodeHandler != nil {
+		if err := m.errorCodeHandler(ctx, data); err != nil {
+			return err
+		}
 	}
 
-	return m.flushRows(ctx)
+	return nil
 }
 
 func (m *mapper) handleIncomingProduct(ctx context.Context, data parser.Product) error {
@@ -40,11 +42,13 @@ func (m *mapper) handleIncomingProduct(ctx context.Context, data parser.Product)
 
 	m.gotProduct = true
 
-	if m.ProductHandler != nil {
-		m.ProductHandler(ctx, data)
+	if m.productHandler != nil {
+		if err := m.productHandler(ctx, data); err != nil {
+			return err
+		}
 	}
 
-	return m.flushRows(ctx)
+	return nil
 }
 
 func (m *mapper) handleIncomingDatabase(ctx context.Context, data parser.Database) error {
@@ -58,8 +62,10 @@ func (m *mapper) handleIncomingDatabase(ctx context.Context, data parser.Databas
 	m.timeLayout = timeconv.ParseTimeFormat(data.TimeFormat)
 	m.timestampLayout = m.dateLayout + " " + m.timeLayout // No idea if this is correct
 
-	if m.DatabaseHandler != nil {
-		m.DatabaseHandler(ctx, data)
+	if m.databaseHandler != nil {
+		if err := m.databaseHandler(ctx, data); err != nil {
+			return err
+		}
 	}
 
 	return m.flushRows(ctx)
@@ -81,15 +87,17 @@ func (m *mapper) handleIncomingField(ctx context.Context, field parser.Field) er
 
 	m.encodingFunctions = append(m.encodingFunctions, joinedData)
 
-	if m.FieldHandler != nil {
-		m.FieldHandler(ctx, field)
+	if m.fieldHandler != nil {
+		if err := m.fieldHandler(ctx, field); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (m *mapper) handleIncomingRow(ctx context.Context, row parser.NormalizedRow) error {
-	if m.RowHandler == nil {
+	if m.rowHandler == nil {
 		return nil
 	}
 
@@ -106,28 +114,28 @@ func (m *mapper) handleIncomingRow(ctx context.Context, row parser.NormalizedRow
 
 	cap := len(row.Columns)
 
-	if m.RowIDField != "" {
+	if m.rowIDField != "" {
 		cap++
 	}
 
-	if m.ModificationIDField != "" {
+	if m.modificationIDField != "" {
 		cap++
 	}
 
 	// Pre-compute the capacity to be nicer to the garbage collector
 	out.encoders = make([]encoder, 0, cap)
 
-	if m.RowIDField != "" {
+	if m.rowIDField != "" {
 		f := func(enc *gojay.Encoder) {
-			enc.StringKey(m.RowIDField, row.RecordID)
+			enc.StringKey(m.rowIDField, row.RecordID)
 		}
 
 		out.encoders = append(out.encoders, f)
 	}
 
-	if m.ModificationIDField != "" {
+	if m.modificationIDField != "" {
 		f := func(enc *gojay.Encoder) {
-			enc.StringKey(m.ModificationIDField, row.ModID)
+			enc.StringKey(m.modificationIDField, row.ModID)
 		}
 
 		out.encoders = append(out.encoders, f)
@@ -145,8 +153,7 @@ func (m *mapper) handleIncomingRow(ctx context.Context, row parser.NormalizedRow
 		out.encoders = append(out.encoders, encoder)
 	}
 
-	m.RowHandler(ctx, out)
-	return nil
+	return m.rowHandler(ctx, out)
 }
 
 func (m *mapper) handleIncomingMetadataEndSignal(ctx context.Context) error {
@@ -156,6 +163,7 @@ func (m *mapper) handleIncomingMetadataEndSignal(ctx context.Context) error {
 	}
 
 	m.endedMetadata = true
+
 	return m.flushRows(ctx)
 }
 
@@ -165,7 +173,7 @@ func (m *mapper) handleIncomingResultSetEndSignal(ctx context.Context) error {
 	}
 
 	m.endedResultSet = true
-	return m.flushRows(ctx)
+	return nil
 }
 
 func (m *mapper) readyForRows() bool {

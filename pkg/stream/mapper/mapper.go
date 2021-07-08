@@ -18,28 +18,28 @@ type Mapper struct {
 	RowIDField          string
 	ModificationIDField string
 
-	RowHandler       func(context.Context, MappedRecord)
-	ErrorCodeHandler func(context.Context, parser.ErrorCode)
-	ProductHandler   func(context.Context, parser.Product)
-	FieldHandler     func(context.Context, parser.Field)
-	DatabaseHandler  func(context.Context, parser.Database)
+	RowHandler       func(context.Context, MappedRecord) error
+	ErrorCodeHandler func(context.Context, parser.ErrorCode) error
+	ProductHandler   func(context.Context, parser.Product) error
+	FieldHandler     func(context.Context, parser.Field) error
+	DatabaseHandler  func(context.Context, parser.Database) error
 }
 
 func (m Mapper) Map(ctx context.Context, r io.Reader) error {
 	privateMapper := m.getPrivate()
 
-	return privateMapper.Map(ctx, r)
+	return privateMapper.execute(ctx, r)
 }
 
 func (m Mapper) getPrivate() *mapper {
 	return &mapper{
-		RowIDField:          m.RowIDField,
-		ModificationIDField: m.ModificationIDField,
+		rowIDField:          m.RowIDField,
+		modificationIDField: m.ModificationIDField,
 
-		RowHandler:       m.RowHandler,
-		ErrorCodeHandler: m.ErrorCodeHandler,
-		ProductHandler:   m.ProductHandler,
-		FieldHandler:     m.FieldHandler,
-		DatabaseHandler:  m.DatabaseHandler,
+		rowHandler:       m.RowHandler,
+		errorCodeHandler: m.ErrorCodeHandler,
+		productHandler:   m.ProductHandler,
+		fieldHandler:     m.FieldHandler,
+		databaseHandler:  m.DatabaseHandler,
 	}
 }
