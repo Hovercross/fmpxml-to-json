@@ -5,42 +5,57 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/mapper"
+	"github.com/hovercross/fmpxml-to-json/pkg/stream/parser"
 )
 
 type JSONResult struct {
-	ErrorCode fmpxmlresult.ErrorCode `json:"errorCode"`
-	Database  fmpxmlresult.Database  `json:"database"`
-	Fields    []fmpxmlresult.Field   `json:"fields"`
-	Product   fmpxmlresult.Product   `json:"product"`
-	Records   []mapper.MappedRecord  `json:"records"`
+	ErrorCode parser.ErrorCode      `json:"errorCode"`
+	Database  parser.Database       `json:"database"`
+	Fields    []parser.Field        `json:"fields"`
+	Product   parser.Product        `json:"product"`
+	Records   []mapper.MappedRecord `json:"records"`
+}
+
+func (jr *JSONResult) setDatabase(ctx context.Context, data parser.Database) {
+	jr.Database = data
+}
+
+func (jr *JSONResult) setErrorCode(ctx context.Context, data parser.ErrorCode) {
+	jr.ErrorCode = data
+}
+
+func (jr *JSONResult) appendField(ctx context.Context, data parser.Field) {
+	jr.Fields = append(jr.Fields, data)
+}
+
+func (jr *JSONResult) setProduct(ctx context.Context, data parser.Product) {
+	jr.Product = data
 }
 
 func WriteJSON(ctx context.Context, r io.Reader, w io.Writer, recordIDField, modIDField string) error {
 	out := JSONResult{}
 
-	collect := func(ctx context.Context, row mapper.MappedRecord) error {
+	collect := func(ctx context.Context, row mapper.MappedRecord) {
 		out.Records = append(out.Records, row)
-		return nil
 	}
 
 	p := mapper.Mapper{
 		RowIDField:          recordIDField,
 		ModificationIDField: modIDField,
 		RowHandler:          collect,
+
+		ErrorCodeHandler: out.setErrorCode,
+		DatabaseHandler:  out.setDatabase,
+		FieldHandler:     out.appendField,
+		ProductHandler:   out.setProduct,
 	}
 
-	data, err := p.Map(ctx, r)
+	err := p.Map(ctx, r)
 
 	if err != nil {
 		return err
 	}
-
-	out.Database = data.Database
-	out.ErrorCode = data.ErrorCode
-	out.Fields = data.Fields
-	out.Product = data.Product
 
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

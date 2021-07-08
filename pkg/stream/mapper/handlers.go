@@ -6,7 +6,8 @@ import (
 	"log"
 
 	"github.com/francoispqt/gojay"
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
+	"github.com/hovercross/fmpxml-to-json/pkg/stream/parser"
+	"github.com/hovercross/fmpxml-to-json/pkg/timeconv"
 )
 
 var (
@@ -18,54 +19,60 @@ var (
 	ErrFieldCountMismatch            = errors.New("Field count mismatch")
 )
 
-func (m *mapper) handleIncomingErrorCode(ctx context.Context, data fmpxmlresult.ErrorCode) error {
-	if m.errorCode != nil {
+func (m *mapper) handleIncomingErrorCode(ctx context.Context, data parser.ErrorCode) error {
+	if m.gotErrorCode {
 		return ErrMultipleErrorCodeRecordsFound
 	}
 
-	m.errorCode = &data
+	m.gotErrorCode = true
+
+	if m.ErrorCodeHandler != nil {
+		m.ErrorCodeHandler(ctx, data)
+	}
+
 	return m.flushRows(ctx)
 }
 
-func (m *mapper) handleIncomingProduct(ctx context.Context, data fmpxmlresult.Product) error {
-	if m.product != nil {
+func (m *mapper) handleIncomingProduct(ctx context.Context, data parser.Product) error {
+	if m.gotProduct {
 		return ErrMultipleProductRecordsFound
 	}
 
-	m.product = &data
+	m.gotProduct = true
+
+	if m.ProductHandler != nil {
+		m.ProductHandler(ctx, data)
+	}
+
 	return m.flushRows(ctx)
 }
 
-func (m *mapper) handleIncomingDatabase(ctx context.Context, data fmpxmlresult.Database) error {
-	if m.database != nil {
+func (m *mapper) handleIncomingDatabase(ctx context.Context, data parser.Database) error {
+	if m.gotDatabase {
 		return ErrMultipleDatabaseRecordsFound
 	}
 
-	m.database = &data
-	if err := m.flushFields(ctx); err != nil {
-		return err
+	m.gotDatabase = true
+
+	m.dateLayout = timeconv.ParseDateFormat(data.DateFormat)
+	m.timeLayout = timeconv.ParseTimeFormat(data.TimeFormat)
+	m.timestampLayout = m.dateLayout + " " + m.timeLayout // No idea if this is correct
+
+	if m.DatabaseHandler != nil {
+		m.DatabaseHandler(ctx, data)
 	}
 
 	return m.flushRows(ctx)
 }
 
 // Here are all the handlers for the individual incoming elements
-func (m *mapper) handleIncomingField(ctx context.Context, field fmpxmlresult.Field) error {
+func (m *mapper) handleIncomingField(ctx context.Context, field parser.Field) error {
 	if m.endedMetadata {
 		return ErrMultipleMetadata
 	}
 
-	if !m.readyForFields() {
-		m.pendingFields = append(m.pendingFields, field)
-		return nil
-	}
-
-	if err := m.flushFields(ctx); err != nil {
-		return err
-	}
-
-	m.fields = append(m.fields, field)
-
+	// Since the date/time encoders are hung off the mapper, we don't need to worry that we don't yet have a
+	// date or time format - they'll be populated before we process any rows
 	encoder := m.getEncoder(field)
 	joinedData := encodingFunction{
 		key:   field.Name,
@@ -73,10 +80,15 @@ func (m *mapper) handleIncomingField(ctx context.Context, field fmpxmlresult.Fie
 	}
 
 	m.encodingFunctions = append(m.encodingFunctions, joinedData)
-	return m.flushRows(ctx)
+
+	if m.FieldHandler != nil {
+		m.FieldHandler(ctx, field)
+	}
+
+	return nil
 }
 
-func (m *mapper) handleIncomingRow(ctx context.Context, row fmpxmlresult.NormalizedRow) error {
+func (m *mapper) handleIncomingRow(ctx context.Context, row parser.NormalizedRow) error {
 	if m.RowHandler == nil {
 		return nil
 	}
@@ -133,7 +145,8 @@ func (m *mapper) handleIncomingRow(ctx context.Context, row fmpxmlresult.Normali
 		out.encoders = append(out.encoders, encoder)
 	}
 
-	return m.RowHandler(ctx, out)
+	m.RowHandler(ctx, out)
+	return nil
 }
 
 func (m *mapper) handleIncomingMetadataEndSignal(ctx context.Context) error {
@@ -156,24 +169,8 @@ func (m *mapper) handleIncomingResultSetEndSignal(ctx context.Context) error {
 }
 
 func (m *mapper) readyForRows() bool {
-	if !m.readyForFields() {
-		return false
-	}
-
-	if !m.endedMetadata {
-		return false
-	}
-
-	return true
-}
-
-func (m *mapper) readyForFields() bool {
-	// database is required for date/time parsing
-	if m.database == nil {
-		return false
-	}
-
-	return true
+	// Metadata means we're done with fields, database means we should have date/time parsing capabilities
+	return m.endedMetadata && m.gotDatabase
 }
 
 func (m *mapper) flushRows(ctx context.Context) error {
@@ -188,20 +185,5 @@ func (m *mapper) flushRows(ctx context.Context) error {
 	}
 
 	m.pendingRows = nil
-	return nil
-}
-
-func (m *mapper) flushFields(ctx context.Context) error {
-	if !m.readyForFields() {
-		return nil
-	}
-
-	for _, field := range m.pendingFields {
-		if err := m.handleIncomingField(ctx, field); err != nil {
-			return err
-		}
-	}
-
-	m.pendingFields = nil
 	return nil
 }

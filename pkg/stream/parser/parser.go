@@ -8,7 +8,6 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/constants"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/paths"
 )
@@ -17,22 +16,29 @@ import (
 type Parser struct {
 	Reader io.Reader
 
-	ErrorCodeHandler    func(context.Context, fmpxmlresult.ErrorCode) error
-	ProductHandler      func(context.Context, fmpxmlresult.Product) error
-	FieldHandler        func(context.Context, fmpxmlresult.Field) error
-	DatabaseHandler     func(context.Context, fmpxmlresult.Database) error
-	RowHandler          func(context.Context, fmpxmlresult.NormalizedRow) error
+	ErrorCodeHandler    func(context.Context, ErrorCode) error
+	ProductHandler      func(context.Context, Product) error
+	FieldHandler        func(context.Context, Field) error
+	DatabaseHandler     func(context.Context, Database) error
+	RowHandler          func(context.Context, NormalizedRow) error
 	MetadataEndHandler  func(context.Context) error
 	ResultSetEndHandler func(context.Context) error
 
 	currentSpace paths.SpaceChain
-	workingRow   fmpxmlresult.NormalizedRow
+	workingRow   NormalizedRow
 }
 
 func (p *Parser) Parse(ctx context.Context) error {
 	decoder := xml.NewDecoder(p.Reader)
 
 	for {
+		// Before we sit here decoding when nobody wants it, check for cancelation
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		default:
+		}
+
 		token, err := decoder.Token()
 
 		if err == io.EOF {
@@ -142,7 +148,7 @@ func (p *Parser) handleErrorCode(ctx context.Context, elem xml.CharData) error {
 		return fmt.Errorf("Unable to parse error code '%s' as integer: %v", s, err)
 	}
 
-	return p.ErrorCodeHandler(ctx, fmpxmlresult.ErrorCode(val))
+	return p.ErrorCodeHandler(ctx, ErrorCode(val))
 }
 
 func (p *Parser) handleProduct(ctx context.Context, elem xml.StartElement) error {
@@ -150,7 +156,7 @@ func (p *Parser) handleProduct(ctx context.Context, elem xml.StartElement) error
 		return nil
 	}
 
-	out := fmpxmlresult.Product{}
+	out := Product{}
 
 	attrMap := map[string]*string{
 		constants.BUILD:   &out.Build,
@@ -172,7 +178,7 @@ func (p *Parser) handleDatabase(ctx context.Context, elem xml.StartElement) erro
 		return nil
 	}
 
-	out := fmpxmlresult.Database{}
+	out := Database{}
 
 	attrMap := map[string]*string{
 		constants.DATEFORMAT: &out.DateFormat,
@@ -204,7 +210,7 @@ func (p *Parser) handleField(ctx context.Context, elem xml.StartElement) error {
 		return nil
 	}
 
-	out := fmpxmlresult.Field{}
+	out := Field{}
 
 	for _, attr := range elem.Attr {
 		if attr.Name.Local == constants.EMPTYOK {
@@ -254,7 +260,7 @@ func (p *Parser) handleRowStart(ctx context.Context, elem xml.StartElement) erro
 		return nil
 	}
 
-	p.workingRow = fmpxmlresult.NormalizedRow{}
+	p.workingRow = NormalizedRow{}
 
 	for _, attr := range elem.Attr {
 		if attr.Name.Local == constants.RECORDID {

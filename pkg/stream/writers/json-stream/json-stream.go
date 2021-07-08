@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"strconv"
 
 	"github.com/francoispqt/gojay"
@@ -16,17 +17,42 @@ var (
 )
 
 func WriteJSONLines(ctx context.Context, r io.Reader, w io.Writer, recordIDField, modIDField, prefix, suffix string, lengthSize int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	buf := bufio.NewWriter(w)
 
-	write := func(ctx context.Context, record mapper.MappedRecord) error {
+	var err error
+
+	onError := func(incoming error) {
+		cancel()
+
+		log.Printf("Got error: %v", incoming)
+
+		// Only record the first error
+		if err == nil {
+			err = incoming
+		}
+	}
+
+	write := func(ctx context.Context, record mapper.MappedRecord) {
+		// Check for context cancelation before we actually do the write
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		data, err := gojay.MarshalJSONObject(record)
 
 		if err != nil {
-			return err
+			onError(err)
+			return
 		}
 
 		if _, err := buf.WriteString(prefix); err != nil {
-			return err
+			onError(err)
+			return
 		}
 
 		if lengthSize > -1 {
@@ -39,38 +65,42 @@ func WriteJSONLines(ctx context.Context, r io.Reader, w io.Writer, recordIDField
 				toPad := lengthSize - formattedJSONSizeLength
 
 				if toPad < 0 {
-					return ErrJSONTooLong
+					onError(err)
+					return
 				}
 
 				// Write a bunch of zeros out
 				for i := 0; i < toPad; i++ {
 					if _, err := buf.WriteString("0"); err != nil {
-						return err
+						onError(err)
+						return
 					}
 				}
 			}
 
 			// Whether or not we just padded it out, write the final JSON size prefix
 			if _, err := buf.WriteString(formattedJSONSize); err != nil {
-				return nil
+				onError(err)
+				return
 			}
 		}
 
 		// Write out the encoded data
 		if _, err := buf.Write(data); err != nil {
-			return err
+			onError(err)
+			return
 		}
 
 		// Write the suffix out - \n for json lines
 		if _, err := buf.WriteString(suffix); err != nil {
-			return err
+			onError(err)
+			return
 		}
 
 		if err := buf.Flush(); err != nil {
-			return err
+			onError(err)
+			return
 		}
-
-		return nil
 	}
 
 	p := mapper.Mapper{
@@ -79,12 +109,9 @@ func WriteJSONLines(ctx context.Context, r io.Reader, w io.Writer, recordIDField
 		RowHandler:          write,
 	}
 
-	// Run the mapper, which will in turn call our write function above
-	_, err := p.Map(ctx, r)
-
-	if err != nil {
-		return err
+	if err := p.Map(ctx, r); err != nil {
+		onError(err)
 	}
 
-	return nil
+	return err
 }

@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	"github.com/francoispqt/gojay"
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/constants"
+	"github.com/hovercross/fmpxml-to-json/pkg/stream/parser"
 )
 
 var (
@@ -38,7 +38,7 @@ func (mr MappedRecord) MarshalJSON() ([]byte, error) {
 	return gojay.MarshalJSONObject(mr)
 }
 
-func (m *mapper) getEncoder(field fmpxmlresult.Field) encoderProxy {
+func (m *mapper) getEncoder(field parser.Field) encoderProxy {
 	// TEXT, NUMBER, DATE, TIME, TIMESTAMP, and CONTAINER
 	if field.MaxRepeat == 1 {
 		switch field.Type {

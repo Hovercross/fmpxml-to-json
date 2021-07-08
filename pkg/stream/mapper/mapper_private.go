@@ -6,7 +6,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/hovercross/fmpxml-to-json/pkg/fmpxmlresult"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/parser"
 )
 
@@ -23,25 +22,27 @@ var (
 type mapper struct {
 	encodingFunctions []encodingFunction
 
-	errorCode *fmpxmlresult.ErrorCode
-	product   *fmpxmlresult.Product
-	fields    []fmpxmlresult.Field
-	database  *fmpxmlresult.Database
-
 	dateLayout      string
 	timeLayout      string
 	timestampLayout string
 
-	pendingRows   []fmpxmlresult.NormalizedRow
-	pendingFields []fmpxmlresult.Field
+	pendingRows   []parser.NormalizedRow
+	pendingFields []parser.Field
 
 	endedMetadata  bool
 	endedResultSet bool
+	gotErrorCode   bool
+	gotProduct     bool
+	gotDatabase    bool
 
 	RowIDField          string
 	ModificationIDField string
 
-	RowHandler func(context.Context, MappedRecord) error
+	RowHandler       func(context.Context, MappedRecord)
+	ErrorCodeHandler func(context.Context, parser.ErrorCode)
+	ProductHandler   func(context.Context, parser.Product)
+	FieldHandler     func(context.Context, parser.Field)
+	DatabaseHandler  func(context.Context, parser.Database)
 }
 
 type encodingFunction struct {
@@ -49,10 +50,9 @@ type encodingFunction struct {
 	proxy encoderProxy
 }
 
-func (m *mapper) Map(ctx context.Context, r io.Reader) (CollectedData, error) {
+func (m *mapper) Map(ctx context.Context, r io.Reader) error {
 	var err error
 	var wg sync.WaitGroup
-	var out CollectedData
 
 	// The parser will be emitting lightly normalized rows, metadata, and the like, but does not correlate fields to record columns
 	parser := &parser.Parser{
@@ -77,43 +77,39 @@ func (m *mapper) Map(ctx context.Context, r io.Reader) (CollectedData, error) {
 
 	// Parser error is priority
 	if err != nil {
-		return out, err
+		return err
 	}
 
+	// Flush any pending rows - should be a noop
 	if err := m.flushRows(ctx); err != nil {
-		return out, err
+		return err
 	}
 
 	// This shouldn't happen if we got all the relevant field types
 	if !m.readyForRows() {
-		return out, ErrNeverReady
+		return ErrNeverReady
 	}
 
 	// Technically these errors can be ignored
-	if m.errorCode == nil {
-		return out, ErrNoErrorCodeRecordsFound
+	if !m.gotErrorCode {
+		return ErrNoErrorCodeRecordsFound
 	}
 
-	if m.database == nil {
-		return out, ErrNoDatabaseRecordsFound
+	if !m.gotDatabase {
+		return ErrNoDatabaseRecordsFound
 	}
 
 	if !m.endedMetadata {
-		return out, ErrNoMetadata
+		return ErrNoMetadata
 	}
 
 	if !m.endedResultSet {
-		return out, ErrNoResultSetEnds
+		return ErrNoResultSetEnds
 	}
 
-	if m.product == nil {
-		return out, ErrNoProductRecordsFound
+	if !m.gotProduct {
+		return ErrNoProductRecordsFound
 	}
 
-	out.ErrorCode = *m.errorCode
-	out.Database = *m.database
-	out.Fields = m.fields
-	out.Product = *m.product
-
-	return out, nil
+	return nil
 }
