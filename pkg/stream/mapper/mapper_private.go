@@ -35,14 +35,14 @@ type mapper struct {
 	gotProduct     bool
 	gotDatabase    bool
 
-	RowIDField          string
-	ModificationIDField string
+	rowIDField          string
+	modificationIDField string
 
-	RowHandler       func(context.Context, MappedRecord)
-	ErrorCodeHandler func(context.Context, parser.ErrorCode)
-	ProductHandler   func(context.Context, parser.Product)
-	FieldHandler     func(context.Context, parser.Field)
-	DatabaseHandler  func(context.Context, parser.Database)
+	rowHandler       func(context.Context, MappedRecord)
+	errorCodeHandler func(context.Context, parser.ErrorCode)
+	productHandler   func(context.Context, parser.Product)
+	fieldHandler     func(context.Context, parser.Field)
+	databaseHandler  func(context.Context, parser.Database)
 }
 
 type encodingFunction struct {
@@ -50,7 +50,7 @@ type encodingFunction struct {
 	proxy encoderProxy
 }
 
-func (m *mapper) Map(ctx context.Context, r io.Reader) error {
+func (m *mapper) execute(ctx context.Context, r io.Reader) error {
 	var err error
 	var wg sync.WaitGroup
 
