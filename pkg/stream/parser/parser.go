@@ -5,36 +5,37 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/constants"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/paths"
+	"go.uber.org/zap"
 )
 
 // A Parser emits normalizes and emits various records types as it reads the file. It does not do column -> field mapping
 type Parser struct {
-	Reader io.Reader
-
-	ErrorCodeHandler    func(context.Context, ErrorCode) error
-	ProductHandler      func(context.Context, Product) error
-	FieldHandler        func(context.Context, Field) error
-	DatabaseHandler     func(context.Context, Database) error
-	RowHandler          func(context.Context, NormalizedRow) error
-	MetadataEndHandler  func(context.Context) error
-	ResultSetEndHandler func(context.Context) error
+	Rows         chan<- NormalizedRow
+	ErrorCodes   chan<- ErrorCode
+	Products     chan<- Product
+	Fields       chan<- Field
+	Databases    chan<- Database
+	MetadataEnd  chan<- struct{}
+	ResultSetEnd chan<- struct{}
 
 	currentSpace paths.SpaceChain
 	workingRow   NormalizedRow
 }
 
-func (p *Parser) Parse(ctx context.Context) error {
-	decoder := xml.NewDecoder(p.Reader)
+func (p *Parser) Parse(ctx context.Context, log *zap.Logger, r io.Reader) error {
+	log.Debug("starting XML decode")
+
+	decoder := xml.NewDecoder(r)
 
 	for {
 		// Before we sit here decoding when nobody wants it, check for cancelation
 		select {
 		case <-ctx.Done():
+			log.Warn("logging context canceled")
 			return context.Canceled
 		default:
 		}
@@ -42,91 +43,102 @@ func (p *Parser) Parse(ctx context.Context) error {
 		token, err := decoder.Token()
 
 		if err == io.EOF {
+			log.Info("finished token parsing")
 			return nil
 		}
 
 		if err != nil {
+			log.Error("Error when getting token", zap.Error(err))
 			return err
 		}
 
 		// Token may be one of StartElement, EndElement, Chardata, Command, ProcInst, or Directive
 
+		log.Debug("beginning token switch")
+
 		switch elem := token.(type) {
 		case xml.StartElement:
-			if err := p.handleStart(ctx, elem); err != nil {
+			log := log.With(zap.String("token", elem.Name.Local))
+
+			log.Debug("starting token")
+
+			if err := p.handleStart(ctx, log, elem); err != nil {
 				return err
 			}
 		case xml.EndElement:
-			p.handleEnd(ctx, elem)
+			log := log.With(zap.String("token", elem.Name.Local))
+
+			if err := p.handleEnd(ctx, log, elem); err != nil {
+				return err
+			}
 		case xml.CharData:
-			if err := p.handleCharData(ctx, elem); err != nil {
+			if err := p.handleCharData(ctx, log, elem); err != nil {
 				return err
 			}
 		}
-
 	}
 }
 
-func (p *Parser) handleStart(ctx context.Context, elem xml.StartElement) error {
+func (p *Parser) handleStart(ctx context.Context, log *zap.Logger, elem xml.StartElement) error {
 	p.pushSpace(ctx, elem)
 
-	log.Printf("Entering into %s", elem.Name.Local)
-
 	if p.currentSpace.IsExact(paths.Product) {
-		return p.handleProduct(ctx, elem)
+		return p.handleProduct(ctx, log, elem)
 	}
 
 	if p.currentSpace.IsExact(paths.Database) {
-		return p.handleDatabase(ctx, elem)
+		return p.handleDatabase(ctx, log, elem)
 	}
 
 	if p.currentSpace.IsExact(paths.Field) {
-		return p.handleField(ctx, elem)
+		return p.handleField(ctx, log, elem)
 	}
 
 	if p.currentSpace.IsExact(paths.Row) {
-		return p.handleRowStart(ctx, elem)
+		return p.handleRowStart(ctx, log, elem)
 	}
 
 	if p.currentSpace.IsExact(paths.Col) {
-		return p.handleColStart(ctx, elem)
+		return p.handleColStart(ctx, log, elem)
 	}
 
-	log.Printf("Element was unhandled")
+	log.Debug("Token start was unhandled")
 
 	return nil
 }
 
-func (p *Parser) handleEnd(ctx context.Context, elem xml.EndElement) error {
+func (p *Parser) handleEnd(ctx context.Context, log *zap.Logger, elem xml.EndElement) error {
 	defer p.popSpace(ctx)
 
-	log.Printf("Exiting out of %s", elem.Name.Local)
+	log.Debug("ending token", zap.String("token", elem.Name.Local))
 
 	if p.currentSpace.IsExact(paths.Row) {
-		return p.handleRowEnd(ctx)
+		return p.handleRowEnd(ctx, log)
 	}
 
 	if p.currentSpace.IsExact(paths.Metadata) {
-		return p.handleMetadataEnd(ctx)
+		return p.handleMetadataEnd(ctx, log)
 	}
 
 	if p.currentSpace.IsExact(paths.ResultSet) {
-		return p.handleResultSetEnd(ctx)
+		return p.handleResultSetEnd(ctx, log)
 	}
 
-	log.Printf("Element was unhandled")
+	log.Debug("token end not handled")
 
 	return nil
 }
 
-func (p *Parser) handleCharData(ctx context.Context, elem xml.CharData) error {
-	log.Printf("Got data: %s", string(elem))
-
-	if p.currentSpace.IsExact(paths.ErrorCode) {
-		return p.handleErrorCode(ctx, elem)
+func (p *Parser) handleCharData(ctx context.Context, log *zap.Logger, elem xml.CharData) error {
+	if ce := log.Check(zap.DebugLevel, "handling char data"); ce != nil {
+		ce.Write(zap.ByteString("charData", elem))
 	}
 
-	if p.RowHandler != nil && p.currentSpace.IsExact(paths.Data) {
+	if p.currentSpace.IsExact(paths.ErrorCode) {
+		return p.handleErrorCode(ctx, log, elem)
+	}
+
+	if p.Rows != nil && p.currentSpace.IsExact(paths.Data) {
 		index := len(p.workingRow.Columns) - 1
 		workingData := p.workingRow.Columns[index]
 		workingData = append(workingData, string(elem))
@@ -136,8 +148,14 @@ func (p *Parser) handleCharData(ctx context.Context, elem xml.CharData) error {
 	return nil
 }
 
-func (p *Parser) handleErrorCode(ctx context.Context, elem xml.CharData) error {
-	if p.ErrorCodeHandler == nil {
+func (p *Parser) handleErrorCode(ctx context.Context, log *zap.Logger, elem xml.CharData) error {
+	if ce := log.Check(zap.DebugLevel, "handling error code"); ce != nil {
+		ce.Write(zap.ByteString("rawErrorCode", elem))
+	}
+
+	if p.ErrorCodes == nil {
+		log.Debug("no error code handler")
+
 		return nil
 	}
 
@@ -145,14 +163,25 @@ func (p *Parser) handleErrorCode(ctx context.Context, elem xml.CharData) error {
 	val, err := strconv.Atoi(s)
 
 	if err != nil {
-		return fmt.Errorf("Unable to parse error code '%s' as integer: %v", s, err)
+		log.Error("could not translate error code into integer", zap.Error(err))
+		return err
 	}
 
-	return p.ErrorCodeHandler(ctx, ErrorCode(val))
+	select {
+	case <-ctx.Done():
+		log.Warn("context was canceled")
+		return context.Canceled
+	case p.ErrorCodes <- ErrorCode(val):
+		return nil
+	}
 }
 
-func (p *Parser) handleProduct(ctx context.Context, elem xml.StartElement) error {
-	if p.ProductHandler == nil {
+func (p *Parser) handleProduct(ctx context.Context, log *zap.Logger, elem xml.StartElement) error {
+	log.Debug("starting product node handle")
+
+	if p.Products == nil {
+		log.Debug("product handler was nil")
+
 		return nil
 	}
 
@@ -165,16 +194,32 @@ func (p *Parser) handleProduct(ctx context.Context, elem xml.StartElement) error
 	}
 
 	for _, attr := range elem.Attr {
+		if ce := log.Check(zap.DebugLevel, "handling attribute"); ce != nil {
+			ce.Write(zap.String("attr-key", attr.Name.Local), zap.String("attr-value", attr.Value))
+		}
+
 		if target, found := attrMap[attr.Name.Local]; found {
 			*target = attr.Value
 		}
 	}
 
-	return p.ProductHandler(ctx, out)
+	select {
+	case <-ctx.Done():
+		log.Warn("context was canceled")
+		return context.Canceled
+
+	case p.Products <- out:
+		log.Debug("product emitted")
+		return nil
+	}
 }
 
-func (p *Parser) handleDatabase(ctx context.Context, elem xml.StartElement) error {
-	if p.DatabaseHandler == nil {
+func (p *Parser) handleDatabase(ctx context.Context, log *zap.Logger, elem xml.StartElement) error {
+	log.Debug("starting database node handle")
+
+	if p.Databases == nil {
+		log.Debug("database handler was nil")
+
 		return nil
 	}
 
@@ -188,6 +233,10 @@ func (p *Parser) handleDatabase(ctx context.Context, elem xml.StartElement) erro
 	}
 
 	for _, attr := range elem.Attr {
+		if ce := log.Check(zap.DebugLevel, "handling attribute"); ce != nil {
+			ce.Write(zap.String("attr-key", attr.Name.Local), zap.String("attr-value", attr.Value))
+		}
+
 		if target, found := attrMap[attr.Name.Local]; found {
 			*target = attr.Value
 		}
@@ -195,18 +244,32 @@ func (p *Parser) handleDatabase(ctx context.Context, elem xml.StartElement) erro
 		if attr.Name.Local == constants.RECORDS {
 			v, err := strconv.Atoi(attr.Value)
 			if err != nil {
-				return fmt.Errorf("Unable to parse records attribute '%s' as integer: %v", attr.Value, err)
+				log.Error("unable to parse records attribute as integer", zap.String("raw-value", attr.Value), zap.Error(err))
+
+				return err
 			}
 
 			out.Records = v
 		}
 	}
 
-	return p.DatabaseHandler(ctx, out)
+	select {
+	case <-ctx.Done():
+		log.Warn("context was canceled")
+		return context.Canceled
+
+	case p.Databases <- out:
+		log.Debug("database was emitted")
+		return nil
+	}
 }
 
-func (p *Parser) handleField(ctx context.Context, elem xml.StartElement) error {
-	if p.FieldHandler == nil {
+func (p *Parser) handleField(ctx context.Context, log *zap.Logger, elem xml.StartElement) error {
+	log.Debug("starting field node handle")
+
+	if p.Fields == nil {
+		log.Debug("field handler is nil")
+
 		return nil
 	}
 
@@ -216,6 +279,8 @@ func (p *Parser) handleField(ctx context.Context, elem xml.StartElement) error {
 		if attr.Name.Local == constants.EMPTYOK {
 			var err error
 			if out.EmptyOK, err = yesNo(attr.Value); err != nil {
+				log.Error("unable to process EMPTYOK as boolean", zap.String("raw", attr.Value), zap.Error(err))
+
 				return err
 			}
 		}
@@ -223,7 +288,9 @@ func (p *Parser) handleField(ctx context.Context, elem xml.StartElement) error {
 		if attr.Name.Local == constants.MAXREPEAT {
 			var err error
 			if out.MaxRepeat, err = strconv.Atoi(attr.Value); err != nil {
-				return fmt.Errorf("Unable to parse '%s' as MAXREPEAT: %v", attr.Value, err)
+				log.Error("unable to process MAXREPEAT as integer", zap.String("raw", attr.Value), zap.Error(err))
+
+				return err
 			}
 		}
 
@@ -236,33 +303,73 @@ func (p *Parser) handleField(ctx context.Context, elem xml.StartElement) error {
 		}
 	}
 
-	return p.FieldHandler(ctx, out)
+	log.Debug("finishing parsing field, beginning emit")
+
+	select {
+	case <-ctx.Done():
+		log.Warn("context was canceled")
+		return context.Canceled
+
+	case p.Fields <- out:
+		log.Debug("field was emitted")
+		return nil
+	}
 }
 
-func (p *Parser) handleMetadataEnd(ctx context.Context) error {
-	if p.MetadataEndHandler == nil {
+func (p *Parser) handleMetadataEnd(ctx context.Context, log *zap.Logger) error {
+	log.Debug("handling metadata end")
+
+	if p.MetadataEnd == nil {
+		log.Debug("no metadata end handler")
+
 		return nil
 	}
 
-	return p.MetadataEndHandler(ctx)
+	select {
+	case <-ctx.Done():
+		log.Warn("context was canceled")
+		return context.Canceled
+
+	case p.MetadataEnd <- struct{}{}:
+		log.Debug("metadata end was emitted")
+		return nil
+	}
 }
 
-func (p *Parser) handleResultSetEnd(ctx context.Context) error {
-	if p.ResultSetEndHandler == nil {
+func (p *Parser) handleResultSetEnd(ctx context.Context, log *zap.Logger) error {
+	log.Debug("handling result set end")
+
+	if p.ResultSetEnd == nil {
+		log.Debug("no result set end handler")
+
 		return nil
 	}
 
-	return p.ResultSetEndHandler(ctx)
+	select {
+	case <-ctx.Done():
+		log.Warn("context was canceled")
+		return context.Canceled
+
+	case p.ResultSetEnd <- struct{}{}:
+		log.Debug("result set end was emitted")
+		return nil
+	}
 }
 
-func (p *Parser) handleRowStart(ctx context.Context, elem xml.StartElement) error {
-	if p.RowHandler == nil {
+func (p *Parser) handleRowStart(ctx context.Context, log *zap.Logger, elem xml.StartElement) error {
+	log.Debug("handling row start")
+
+	if p.Rows == nil {
+		log.Debug("row handler is nil")
+
 		return nil
 	}
 
 	p.workingRow = NormalizedRow{}
 
 	for _, attr := range elem.Attr {
+		log.Debug("handling attribute", zap.String("attr-name", attr.Name.Local), zap.String("attr-value", attr.Value))
+
 		if attr.Name.Local == constants.RECORDID {
 			p.workingRow.RecordID = attr.Value
 		}
@@ -275,8 +382,12 @@ func (p *Parser) handleRowStart(ctx context.Context, elem xml.StartElement) erro
 	return nil
 }
 
-func (p *Parser) handleColStart(ctx context.Context, elem xml.StartElement) error {
-	if p.RowHandler == nil {
+func (p *Parser) handleColStart(ctx context.Context, log *zap.Logger, elem xml.StartElement) error {
+	log.Debug("handling col start")
+
+	if p.Rows == nil {
+		log.Debug("row handler is nil")
+
 		return nil
 	}
 
@@ -286,12 +397,24 @@ func (p *Parser) handleColStart(ctx context.Context, elem xml.StartElement) erro
 }
 
 // Once we've collected all the columns in a row, emit it
-func (p *Parser) handleRowEnd(ctx context.Context) error {
-	if p.RowHandler == nil {
+func (p *Parser) handleRowEnd(ctx context.Context, log *zap.Logger) error {
+	log.Debug("handling row end")
+
+	if p.Rows == nil {
+		log.Debug("row handler is nil")
+
 		return nil
 	}
 
-	return p.RowHandler(ctx, p.workingRow)
+	select {
+	case <-ctx.Done():
+		log.Warn("context was canceled")
+		return context.Canceled
+
+	case p.Rows <- p.workingRow:
+		log.Debug("database was emitted")
+		return nil
+	}
 }
 
 func (p *Parser) pushSpace(ctx context.Context, elem xml.StartElement) {

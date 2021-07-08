@@ -1,2 +1,2 @@
-0000000160{"recordID":"34","modificationID":"47","First Name":"Joe","Last Name":"Smith","Department":"Engineering","Email":["jsmith@example.org","joe.smith@example.org"]}
-0000000161{"recordID":"78","modificationID":"89","First Name":"Susan","Last Name":"Jones","Department":"Marketing","Email":["joness@example.org","susanjones@example.org"]}
+{"recordID":"34","modificationID":"47","First Name":"Joe","Last Name":"Smith","Department":"Engineering","Email":["jsmith@example.org","joe.smith@example.org"]}
+{"recordID":"78","modificationID":"89","First Name":"Susan","Last Name":"Jones","Department":"Marketing","Email":["joness@example.org","susanjones@example.org"]}

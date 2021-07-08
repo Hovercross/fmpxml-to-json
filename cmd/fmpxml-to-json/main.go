@@ -4,11 +4,12 @@ import (
 	"context"
 	"flag"
 	"io"
-	"log"
+	nativeLog "log"
 	"os"
 
 	jsonWriter "github.com/hovercross/fmpxml-to-json/pkg/stream/writers/json"
 	jsonStreamWriter "github.com/hovercross/fmpxml-to-json/pkg/stream/writers/json-stream"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -18,6 +19,8 @@ func main() {
 	var streamPrefix, streamSuffix string // These are only used for JSON Lines
 	var streamLengthPrefixSize int
 
+	var debug bool
+
 	flag.StringVar(&inFileName, "input", "-", "File to read from, or \"-\" for STDIN")
 	flag.StringVar(&outFileName, "output", "-", "File to write to, or \"-\" for STDOUT")
 	flag.StringVar(&recordIDField, "recordID", "", "Field name to write the record ID value to")
@@ -26,8 +29,11 @@ func main() {
 	flag.StringVar(&streamPrefix, "json-stream-prefix", "", "Prefix to write before every entry in the JSON concatinated format")
 	flag.StringVar(&streamSuffix, "json-stream-suffix", "\n", "Suffix to write before every entry in the JSON concatinated format")
 	flag.IntVar(&streamLengthPrefixSize, "json-stream-prefix-size", -1, "Write the size of each JSON object before the JSON object itself. A value of 0 is an unlimited with, any other positive number indicates the fixed width for the JSON object size")
+	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
 
 	flag.Parse()
+
+	log := getLog(debug)
 
 	var reader io.ReadCloser
 
@@ -39,7 +45,7 @@ func main() {
 		reader, err = os.Open(inFileName)
 
 		if err != nil {
-			log.Fatalf("Unable to open '%s' for reading: %s", inFileName, err)
+			log.Fatal("could not open file for reading", zap.String("filename", inFileName), zap.Error(err))
 		}
 	}
 
@@ -53,7 +59,7 @@ func main() {
 		writer, err = os.Create(outFileName)
 
 		if err != nil {
-			log.Fatalf("Unable to open '%s' for writing: %s", outFileName, err)
+			log.Fatal("could not open file for reading", zap.String("filename", outFileName), zap.Error(err))
 		}
 	}
 
@@ -61,23 +67,55 @@ func main() {
 
 	// Default to the JSON format
 	var f func() error = func() error {
-		return jsonWriter.WriteJSON(ctx, reader, writer, recordIDField, modIDField)
+		jw := jsonWriter.JSONWriter{
+			RecordIDField: recordIDField,
+			ModIDField:    modIDField,
+		}
+
+		return jw.Write(ctx, log, reader, writer)
 	}
 
 	if stream {
 		f = func() error {
-			return jsonStreamWriter.WriteJSONLines(ctx, reader, writer, recordIDField, modIDField, streamPrefix, streamSuffix, streamLengthPrefixSize)
+			sr := jsonStreamWriter.StreamWriter{
+				RecordIDField: recordIDField,
+				ModIDField:    modIDField,
+				Prefix:        streamPrefix,
+				Suffix:        streamSuffix,
+				LengthSize:    streamLengthPrefixSize,
+			}
+
+			return sr.Write(ctx, log, reader, writer)
 		}
 
 	}
 
 	if err := f(); err != nil {
-		log.Fatal(err)
+		log.Fatal("unable to execute inner callable", zap.Error(err))
 	}
 }
 
-func closeOrFatal(f io.Closer) {
+func closeOrFatal(log *zap.Logger, f io.Closer) {
 	if err := f.Close(); err != nil {
-		log.Fatalf("Unable to close file: %v", err)
+		log.Fatal("Unable to close file", zap.Error(err))
 	}
+}
+
+func getLog(debug bool) *zap.Logger {
+	if debug {
+		log, err := zap.NewDevelopment()
+
+		if err != nil {
+			nativeLog.Fatalf("count not get Zap logger: %v", err)
+		}
+
+		return log
+	}
+
+	log, err := zap.NewProduction()
+	if err != nil {
+		nativeLog.Fatalf("count not get Zap logger: %v", err)
+	}
+
+	return log
 }

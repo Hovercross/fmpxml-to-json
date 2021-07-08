@@ -7,63 +7,69 @@ import (
 
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/mapper"
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/parser"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
-type JSONResult struct {
-	ErrorCode parser.ErrorCode      `json:"errorCode"`
-	Database  parser.Database       `json:"database"`
-	Fields    []parser.Field        `json:"fields"`
-	Product   parser.Product        `json:"product"`
-	Records   []mapper.MappedRecord `json:"records"`
+type JSONWriter struct {
+	RecordIDField string
+	ModIDField    string
 }
 
-func (jr *JSONResult) setDatabase(ctx context.Context, data parser.Database) error {
-	jr.Database = data
-
-	return nil
-}
-
-func (jr *JSONResult) setErrorCode(ctx context.Context, data parser.ErrorCode) error {
-	jr.ErrorCode = data
-
-	return nil
-}
-
-func (jr *JSONResult) appendField(ctx context.Context, data parser.Field) error {
-	jr.Fields = append(jr.Fields, data)
-
-	return nil
-}
-
-func (jr *JSONResult) setProduct(ctx context.Context, data parser.Product) error {
-	jr.Product = data
-
-	return nil
-}
-
-func WriteJSON(ctx context.Context, r io.Reader, w io.Writer, recordIDField, modIDField string) error {
+func (jw *JSONWriter) Write(ctx context.Context, log *zap.Logger, r io.Reader, w io.Writer) error {
 	out := JSONResult{}
+	eg, ctx := errgroup.WithContext(ctx)
 
-	collect := func(ctx context.Context, row mapper.MappedRecord) error {
-		out.Records = append(out.Records, row)
+	records := make(chan mapper.MappedRecord)
+	errorCodes := make(chan parser.ErrorCode)
+	databases := make(chan parser.Database)
+	fields := make(chan parser.Field)
+	products := make(chan parser.Product)
+
+	reader := collectorReader{
+		result: &out,
+
+		records:    records,
+		errorCodes: errorCodes,
+		databases:  databases,
+		fields:     fields,
+		products:   products,
+	}
+
+	// Start up the reader
+	eg.Go(func() error {
+		reader.run(ctx, log)
 
 		return nil
-	}
+	})
 
 	p := mapper.Mapper{
-		RowIDField:          recordIDField,
-		ModificationIDField: modIDField,
-		RowHandler:          collect,
+		RowIDField:          jw.RecordIDField,
+		ModificationIDField: jw.ModIDField,
 
-		ErrorCodeHandler: out.setErrorCode,
-		DatabaseHandler:  out.setDatabase,
-		FieldHandler:     out.appendField,
-		ProductHandler:   out.setProduct,
+		Rows:       records,
+		ErrorCodes: errorCodes,
+		Databases:  databases,
+		Fields:     fields,
+		Products:   products,
 	}
 
-	err := p.Map(ctx, r)
+	// Start up the mapper
+	eg.Go(func() error {
+		// Once the mapper finishes, close out all the channels so the reader can finish
+		defer func() {
+			close(records)
+			close(errorCodes)
+			close(databases)
+			close(fields)
+			close(products)
+		}()
 
-	if err != nil {
+		return p.Map(ctx, log, r)
+	})
+
+	// Wait for the mapper and collector to finish
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 

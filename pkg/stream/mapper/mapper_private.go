@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
-	"sync"
 
 	"github.com/hovercross/fmpxml-to-json/pkg/stream/parser"
+	"go.uber.org/zap"
 )
 
 var (
@@ -38,11 +38,19 @@ type mapper struct {
 	rowIDField          string
 	modificationIDField string
 
-	rowHandler       func(context.Context, MappedRecord) error
-	errorCodeHandler func(context.Context, parser.ErrorCode) error
-	productHandler   func(context.Context, parser.Product) error
-	fieldHandler     func(context.Context, parser.Field) error
-	databaseHandler  func(context.Context, parser.Database) error
+	incomingRows         chan parser.NormalizedRow
+	incomingErrorCodes   chan parser.ErrorCode
+	incomingProducts     chan parser.Product
+	incomingFields       chan parser.Field
+	incomingDatabases    chan parser.Database
+	incomingMetadataEnd  chan struct{}
+	incomingResultSetEnd chan struct{}
+
+	outgoingRows       chan<- MappedRecord
+	outgoingErrorCodes chan<- parser.ErrorCode
+	outgoingProducts   chan<- parser.Product
+	outgoingFields     chan<- parser.Field
+	outgoingDatabases  chan<- parser.Database
 }
 
 type encodingFunction struct {
@@ -50,60 +58,111 @@ type encodingFunction struct {
 	proxy encoderProxy
 }
 
-func (m *mapper) execute(ctx context.Context, r io.Reader) error {
-	var err error
-	var wg sync.WaitGroup
-
-	// The parser will be emitting lightly normalized rows, metadata, and the like, but does not correlate fields to record columns
-	parser := &parser.Parser{
-		Reader: r,
-
-		ErrorCodeHandler:    m.handleIncomingErrorCode,
-		ProductHandler:      m.handleIncomingProduct,
-		FieldHandler:        m.handleIncomingField,
-		DatabaseHandler:     m.handleIncomingDatabase,
-		RowHandler:          m.handleIncomingRow,
-		MetadataEndHandler:  m.handleIncomingMetadataEndSignal,
-		ResultSetEndHandler: m.handleIncomingResultSetEndSignal,
-	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err = parser.Parse(ctx)
+func (m *mapper) runParser(ctx context.Context, log *zap.Logger, r io.Reader) error {
+	defer func() {
+		close(m.incomingRows)
+		close(m.incomingErrorCodes)
+		close(m.incomingProducts)
+		close(m.incomingFields)
+		close(m.incomingDatabases)
+		close(m.incomingMetadataEnd)
+		close(m.incomingResultSetEnd)
 	}()
 
-	wg.Wait()
-
-	// Parser error is priority
-	if err != nil {
-		return err
+	p := parser.Public{
+		Rows:         m.incomingRows,
+		ErrorCodes:   m.incomingErrorCodes,
+		Products:     m.incomingProducts,
+		Fields:       m.incomingFields,
+		Databases:    m.incomingDatabases,
+		MetadataEnd:  m.incomingMetadataEnd,
+		ResultSetEnd: m.incomingResultSetEnd,
 	}
 
-	if len(m.pendingRows) > 0 {
-		return ErrNeverReady
-	}
+	return p.Parse(ctx, log, r)
+}
 
-	// Technically these errors can be ignored
-	if !m.gotErrorCode {
-		return ErrNoErrorCodeRecordsFound
-	}
+func (m *mapper) readIncomingData(ctx context.Context, log *zap.Logger) error {
 
-	if !m.gotDatabase {
-		return ErrNoDatabaseRecordsFound
-	}
+	// When dealing with a for/select group of channels that will be closing down, set the channel to nil to never read from it again.
+	// If the channel is left as closed, you will always get a default value out
 
-	if !m.endedMetadata {
-		return ErrNoMetadata
-	}
+	for {
+		// All channels have been closed successfully - stop the loop
+		if m.incomingRows == nil && m.incomingErrorCodes == nil && m.incomingProducts == nil && m.incomingFields == nil && m.incomingDatabases == nil && m.incomingMetadataEnd == nil && m.incomingResultSetEnd == nil {
+			return nil
+		}
 
-	if !m.endedResultSet {
-		return ErrNoResultSetEnds
-	}
+		select {
+		case incomingRow, more := <-m.incomingRows:
+			if !more {
+				m.incomingRows = nil
+				continue
+			}
 
-	if !m.gotProduct {
-		return ErrNoProductRecordsFound
-	}
+			if err := m.handleIncomingRow(ctx, log, incomingRow); err != nil {
+				log.Error("error when handling incoming row", zap.Error(err))
+				return err
+			}
+		case errorCode, more := <-m.incomingErrorCodes:
+			if !more {
+				m.incomingErrorCodes = nil
+				continue
+			}
 
+			if err := m.handleIncomingErrorCode(ctx, log, errorCode); err != nil {
+				return err
+			}
+		case database, more := <-m.incomingDatabases:
+			if !more {
+				m.incomingDatabases = nil
+				continue
+			}
+
+			if err := m.handleIncomingDatabase(ctx, log, database); err != nil {
+				return err
+			}
+		case product, more := <-m.incomingProducts:
+			if !more {
+				m.incomingProducts = nil
+				continue
+			}
+
+			if err := m.handleIncomingProduct(ctx, log, product); err != nil {
+				return err
+			}
+		case field, more := <-m.incomingFields:
+			if !more {
+				m.incomingFields = nil
+				continue
+			}
+
+			if err := m.handleIncomingField(ctx, log, field); err != nil {
+				return err
+			}
+		case _, more := <-m.incomingMetadataEnd:
+			if !more {
+				m.incomingMetadataEnd = nil
+				continue
+			}
+
+			if err := m.handleIncomingMetadataEndSignal(ctx, log); err != nil {
+				return err
+			}
+		case _, more := <-m.incomingResultSetEnd:
+			if !more {
+				m.incomingResultSetEnd = nil
+				continue
+			}
+
+			if err := m.handleIncomingResultSetEndSignal(ctx, log); err != nil {
+				return err
+			}
+		}
+
+	}
+}
+
+func (m *mapper) finalize(ctx context.Context, log *zap.Logger) error {
 	return nil
 }

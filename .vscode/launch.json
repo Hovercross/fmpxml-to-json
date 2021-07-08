@@ -11,7 +11,8 @@
           "-input", "${workspaceFolder}/samples/sample.xml",
           "-output", "${workspaceFolder}/samples/sample.json",
           "-recordID", "recordID",
-          "-modID", "modificationID"
+          "-modID", "modificationID",
+          "-debug"
         ]
       },
       {
@@ -25,7 +26,8 @@
           "-output", "${workspaceFolder}/samples/sample.jsonl",
           "-recordID", "recordID",
           "-modID", "modificationID",
-          "-json-stream"
+          "-json-stream",
+          "-debug"
         ]
       },
       {
@@ -40,7 +42,8 @@
           "-recordID", "recordID",
           "-modID", "modificationID",
           "-json-stream",
-          "-json-stream-prefix-size", "10"
+          "-json-stream-prefix-size", "10",
+          "-debug"
         ]
       }
     ]
