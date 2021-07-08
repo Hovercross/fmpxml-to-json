@@ -19,7 +19,7 @@ var (
 	ErrNeverReady              = errors.New("Mapper never became ready, check for metadata and database fields")
 )
 
-// A mapper translates the parsed rows into concrete types`
+// A mapper translates the parsed rows into concrete types, while emitting records and returning the collected non-record data
 type mapper struct {
 	encodingFunctions []encodingFunction
 
