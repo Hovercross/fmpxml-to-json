@@ -1,9 +1,24 @@
 package timeconv
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
+
+type TimeConversionError struct {
+	Layout string
+	Input  string
+	Err    error
+}
+
+func (tce *TimeConversionError) Error() string {
+	return fmt.Sprintf("Unable to parse '%s' using '%s': %v", tce.Input, tce.Layout, tce.Err)
+}
+
+func (tce *TimeConversionError) Unwrap() error {
+	return tce.Err
+}
 
 type conversion struct {
 	from string
@@ -25,7 +40,11 @@ func MakeTranslationFunc(layout, format string) func(string) (string, error) {
 		t, err := time.Parse(layout, format)
 
 		if err != nil {
-			return "", err
+			return "", &TimeConversionError{
+				Layout: layout,
+				Input:  s,
+				Err:    err,
+			}
 		}
 
 		return t.Format(format), nil
