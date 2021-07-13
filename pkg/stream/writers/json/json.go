@@ -14,6 +14,7 @@ import (
 type JSONWriter struct {
 	RecordIDField string
 	ModIDField    string
+	HashField     string
 }
 
 func (jw *JSONWriter) Write(ctx context.Context, log *zap.Logger, r io.Reader, w io.Writer) error {
@@ -46,6 +47,7 @@ func (jw *JSONWriter) Write(ctx context.Context, log *zap.Logger, r io.Reader, w
 	p := mapper.Mapper{
 		RowIDField:          jw.RecordIDField,
 		ModificationIDField: jw.ModIDField,
+		HashField:           jw.HashField,
 
 		Rows:       records,
 		ErrorCodes: errorCodes,

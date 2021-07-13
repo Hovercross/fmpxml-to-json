@@ -1,2 +1,2 @@
-{"recordID":"34","modificationID":"47","First Name":"Joe","Last Name":"Smith","Department":"Engineering","Email":["jsmith@example.org","joe.smith@example.org"]}
-{"recordID":"78","modificationID":"89","First Name":"Susan","Last Name":"Jones","Department":"Marketing","Email":["joness@example.org","susanjones@example.org"]}
+{"recordID":"34","modificationID":"47","hash":"99c835ac688d06ad71af29ac54c2bd8630339ddb3c5387e35c51f4dd30cb9e3a718c1d55571b6a953c85caf4f826fdc6dcc4a05a8ded9e3f23650adc92b1cfa1","First Name":"Joe","Last Name":"Smith","Department":"Engineering","Email":["jsmith@example.org","joe.smith@example.org"]}
+{"recordID":"78","modificationID":"89","hash":"b592e91e6d6f41afe3aabbe6a9109b9ecb0aab97bd1d39df7f008ff86937e10aeeff03cc72bc788b845912568b6ceea11d4e74f8248417690e1dbbb077524896","First Name":"Susan","Last Name":"Jones","Department":"Marketing","Email":["joness@example.org","susanjones@example.org"]}

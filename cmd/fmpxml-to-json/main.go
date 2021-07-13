@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	var inFileName, outFileName, recordIDField, modIDField string
+	var inFileName, outFileName, recordIDField, modIDField, hashIDField string
 
 	var stream bool
 	var streamPrefix, streamSuffix string // These are only used for JSON Lines
@@ -25,6 +25,7 @@ func main() {
 	flag.StringVar(&outFileName, "output", "-", "File to write to, or \"-\" for STDOUT")
 	flag.StringVar(&recordIDField, "recordID", "", "Field name to write the record ID value to")
 	flag.StringVar(&modIDField, "modID", "", "Field name to write the modification ID value to")
+	flag.StringVar(&hashIDField, "hash", "", "Field name to write the record hash to")
 	flag.BoolVar(&stream, "json-stream", false, "Write a stream of JSON data instead of a single object")
 	flag.StringVar(&streamPrefix, "json-stream-prefix", "", "Prefix to write before every entry in the JSON concatinated format")
 	flag.StringVar(&streamSuffix, "json-stream-suffix", "\n", "Suffix to write before every entry in the JSON concatinated format")
@@ -70,6 +71,7 @@ func main() {
 		jw := jsonWriter.JSONWriter{
 			RecordIDField: recordIDField,
 			ModIDField:    modIDField,
+			HashField:     hashIDField,
 		}
 
 		return jw.Write(ctx, log, reader, writer)
@@ -80,6 +82,7 @@ func main() {
 			sr := jsonStreamWriter.StreamWriter{
 				RecordIDField: recordIDField,
 				ModIDField:    modIDField,
+				HashField:     hashIDField,
 				Prefix:        streamPrefix,
 				Suffix:        streamSuffix,
 				LengthSize:    streamLengthPrefixSize,

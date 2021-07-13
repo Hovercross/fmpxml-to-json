@@ -19,6 +19,7 @@ type CollectedData struct {
 type Mapper struct {
 	RowIDField          string
 	ModificationIDField string
+	HashField           string
 
 	Rows       chan<- MappedRecord
 	ErrorCodes chan<- parser.ErrorCode
@@ -46,6 +47,7 @@ func (m Mapper) copy() *mapper {
 	return &mapper{
 		rowIDField:          m.RowIDField,
 		modificationIDField: m.ModificationIDField,
+		hashField:           m.HashField,
 
 		incomingRows:         make(chan parser.NormalizedRow),
 		incomingErrorCodes:   make(chan parser.ErrorCode),

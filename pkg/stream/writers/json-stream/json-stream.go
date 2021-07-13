@@ -20,6 +20,7 @@ var (
 type StreamWriter struct {
 	RecordIDField string
 	ModIDField    string
+	HashField     string
 	Prefix        string
 	Suffix        string
 	LengthSize    int
@@ -46,7 +47,9 @@ func (sr StreamWriter) Write(ctx context.Context, log *zap.Logger, r io.Reader, 
 	mapper := mapper.Mapper{
 		RowIDField:          sr.RecordIDField,
 		ModificationIDField: sr.ModIDField,
-		Rows:                ch,
+		HashField:           sr.HashField,
+
+		Rows: ch,
 	}
 
 	eg.Go(func() error {

@@ -37,6 +37,7 @@ type mapper struct {
 
 	rowIDField          string
 	modificationIDField string
+	hashField           string
 
 	incomingRows         chan parser.NormalizedRow
 	incomingErrorCodes   chan parser.ErrorCode

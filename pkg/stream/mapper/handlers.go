@@ -2,6 +2,8 @@ package mapper
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/hex"
 	"errors"
 
 	"github.com/francoispqt/gojay"
@@ -172,6 +174,10 @@ func (m *mapper) handleIncomingRow(ctx context.Context, log *zap.Logger, row par
 		cap++
 	}
 
+	if m.hashField != "" {
+		cap++
+	}
+
 	// Pre-compute the capacity to be nicer to the garbage collector
 	out.encoders = make([]encoder, 0, cap)
 
@@ -186,6 +192,30 @@ func (m *mapper) handleIncomingRow(ctx context.Context, log *zap.Logger, row par
 	if m.modificationIDField != "" {
 		f := func(enc *gojay.Encoder) {
 			enc.StringKey(m.modificationIDField, row.ModID)
+		}
+
+		out.encoders = append(out.encoders, f)
+	}
+
+	if m.hashField != "" {
+		hash := sha512.New()
+
+		for i, col := range row.Columns {
+			// Write the field name, just to ensure they don't change
+			hash.Write([]byte(m.encodingFunctions[i].key))
+
+			for _, datum := range col {
+				// Write the data
+				hash.Write([]byte(datum))
+
+				// Write a pad, so that []string{nil, "peacock"} has a different hash than []string{"peacock", nil}
+				hash.Write([]byte("\n"))
+			}
+		}
+
+		val := hex.EncodeToString(hash.Sum(nil))
+		f := func(enc *gojay.Encoder) {
+			enc.StringKey(m.hashField, val)
 		}
 
 		out.encoders = append(out.encoders, f)

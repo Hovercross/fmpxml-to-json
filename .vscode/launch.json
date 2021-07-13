@@ -12,6 +12,7 @@
           "-output", "${workspaceFolder}/samples/sample.json",
           "-recordID", "recordID",
           "-modID", "modificationID",
+          "-hash", "hash",
           "-debug"
         ]
       },
@@ -26,6 +27,7 @@
           "-output", "${workspaceFolder}/samples/sample.jsonl",
           "-recordID", "recordID",
           "-modID", "modificationID",
+          "-hash", "hash",
           "-json-stream",
           "-debug"
         ]
@@ -41,6 +43,7 @@
           "-output", "${workspaceFolder}/samples/sample.jsonl",
           "-recordID", "recordID",
           "-modID", "modificationID",
+          "-hash", "hash",
           "-json-stream",
           "-json-stream-prefix-size", "10",
           "-debug"
