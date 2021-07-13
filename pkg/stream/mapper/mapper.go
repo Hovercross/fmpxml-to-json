@@ -21,6 +21,8 @@ type Mapper struct {
 	ModificationIDField string
 	HashField           string
 
+	FieldNameMap map[string]string
+
 	Rows       chan<- MappedRecord
 	ErrorCodes chan<- parser.ErrorCode
 	Products   chan<- parser.Product
@@ -44,10 +46,18 @@ func (m Mapper) Map(ctx context.Context, log *zap.Logger, r io.Reader) error {
 }
 
 func (m Mapper) copy() *mapper {
+	fnm := map[string]string{}
+
+	// Copy this so it can't be changed later
+	for k, v := range m.FieldNameMap {
+		fnm[k] = v
+	}
+
 	return &mapper{
 		rowIDField:          m.RowIDField,
 		modificationIDField: m.ModificationIDField,
 		hashField:           m.HashField,
+		fieldNameMap:        fnm,
 
 		incomingRows:         make(chan parser.NormalizedRow),
 		incomingErrorCodes:   make(chan parser.ErrorCode),

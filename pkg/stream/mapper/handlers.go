@@ -114,11 +114,24 @@ func (m *mapper) handleIncomingField(ctx context.Context, log *zap.Logger, field
 		return ErrMultipleMetadata
 	}
 
+	fieldName := field.Name
+
+	if replacementName, found := m.fieldNameMap[fieldName]; found {
+		fieldName = replacementName
+	}
+
+	var encoder encoderProxy = skipEncoder
+
 	// Since the date/time encoders are hung off the mapper, we don't need to worry that we don't yet have a
 	// date or time format - they'll be populated before we process any rows
-	encoder := m.getEncoder(field)
+
+	// This defaulted to the skip encoder, so if the field name was rewritten to be empty this will leave it as the skip encoder
+	if fieldName != "" {
+		encoder = m.getEncoder(field)
+	}
+
 	joinedData := encodingFunction{
-		key:   field.Name,
+		key:   fieldName,
 		proxy: encoder,
 	}
 

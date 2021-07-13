@@ -39,6 +39,8 @@ type mapper struct {
 	modificationIDField string
 	hashField           string
 
+	fieldNameMap map[string]string
+
 	incomingRows         chan parser.NormalizedRow
 	incomingErrorCodes   chan parser.ErrorCode
 	incomingProducts     chan parser.Product
